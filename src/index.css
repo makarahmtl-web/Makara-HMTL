@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@theme {
+  --font-size-xs-compact: 10px;
+  --font-size-sm-compact: 11px;
+  --font-size-base-compact: 13px;
+  --font-size-lg-compact: 16px;
+  --font-size-xl-compact: 18px;
+
+  --spacing-compact-1: 4px;
+  --spacing-compact-2: 8px;
+  --spacing-compact-3: 10px;
+  --spacing-compact-4: 12px;
+
+  --radius-compact: 10px;
+
+  --bg-glass: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 100%);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.1);
+  --shadow-glass-lg: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+@layer base {
+  :root {
+    --primary: #6C63FF;
+    --secondary: #FF6B6B;
+    --accent: #00D2FF;
+    --background: #F5F7FA;
+    --card-bg: #FFFFFF;
+    font-family: 'Kantumruy Pro', 'Noto Sans Khmer', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  body {
+    background-color: #F5F7FA;
+    color: #1E293B;
+    overflow-x: hidden;
+  }
+}
+
+.font-khmer {
+  font-family: 'Kantumruy Pro', 'Noto Sans Khmer', 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.92; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s ease-in-out infinite;
+}
+
+.ai-chat-box {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Floating AI Chat Box - Glassmorphism */
+.ai-chat-floating {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  border-radius: 24px;
+  transition: all 0.3s ease;
+}
+
+.ai-chat-floating:hover {
+  box-shadow: 
+    0 24px 80px rgba(108, 99, 255, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+}
+
+/* Floating Button */
+.ai-chat-button {
+  background: linear-gradient(135deg, #6C63FF, #7C7BFF);
+  box-shadow: 0 8px 32px rgba(108, 99, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.ai-chat-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 48px rgba(108, 99, 255, 0.5);
+}
