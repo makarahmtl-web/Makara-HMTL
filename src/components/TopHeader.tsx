@@ -28,11 +28,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       <div className="flex items-center space-x-2 cursor-pointer select-none">
         <HugiLogo size="sm" />
         <div className="flex items-baseline space-x-1.5">
-          <span className="text-[18px] font-black tracking-tight text-[#6C63FF] leading-none">
+          <span className="text-[18px] font-bold tracking-tight text-[#6C63FF] leading-none">
             Hugi
           </span>
-          <span className="text-[9px] text-gray-400 font-bold tracking-wider uppercase">
-            Chat • Story • AI
+          <span className="text-[9px] text-[#111111] font-bold tracking-wider uppercase">
+            Chat • Story • Contacts
           </span>
         </div>
       </div>

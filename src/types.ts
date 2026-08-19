@@ -12,6 +12,20 @@ export interface User {
   soundEnabled: boolean;
   findableByUsername?: "everyone" | "friends" | "nobody";
   showPublicQR?: boolean;
+  
+  // New profile fields
+  hobbies?: string;
+  lookingFor?: string;
+  birthYear?: string;
+  maritalStatus?: "single" | "married" | "divorced" | "complicated" | "";
+  
+  // Privacy toggles
+  showEmail?: boolean;
+  showHobbies?: boolean;
+  showLookingFor?: boolean;
+  showBirthYear?: boolean;
+  showMaritalStatus?: boolean;
+  
   createdAt: string;
 }
 
@@ -104,15 +118,6 @@ export interface Contact {
   bio?: string;
   isOnline: boolean;
   lastSeen?: string;
-}
-
-export interface AIChatMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: string;
-  imageUrl?: string;
-  isGenerating?: boolean;
 }
 
 export type FriendRequestStatus = "pending" | "accepted" | "declined";

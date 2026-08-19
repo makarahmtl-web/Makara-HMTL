@@ -1,7 +1,7 @@
 import React from "react";
-import { MessageCircle, CircleDot, Bot, Users, User } from "lucide-react";
+import { MessageCircle, CircleDot, Users, User } from "lucide-react";
 
-export type NavTab = "chat" | "story" | "ai" | "contacts" | "profile";
+export type NavTab = "chat" | "story" | "contacts" | "profile";
 
 interface BottomNavProps {
   currentTab: NavTab;
@@ -30,12 +30,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       badgeDot: hasNewStories,
     },
     {
-      id: "ai" as NavTab,
-      label: "AI",
-      icon: Bot,
-      isSpecial: true,
-    },
-    {
       id: "contacts" as NavTab,
       label: "CONTACTS",
       icon: Users,
@@ -58,17 +52,17 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-150 ${
+              className={`relative flex flex-col items-center justify-center py-1 px-3.5 rounded-xl transition-all duration-150 ${
                 isActive
                   ? "bg-[#6C63FF]/10 text-[#6C63FF] font-bold"
-                  : "text-gray-400 hover:text-[#6C63FF] font-medium"
+                  : "text-[#111111] font-bold hover:text-[#6C63FF] font-bold"
               }`}
             >
               <div className="relative flex items-center justify-center">
                 <Icon
                   className={`w-[18px] h-[18px] transition-transform duration-150 ${
                     isActive ? "scale-105 stroke-[2.2]" : "stroke-[1.8]"
-                  } ${tab.isSpecial && isActive ? "text-[#6C63FF]" : ""}`}
+                  }`}
                 />
                 {/* Numeric Badge */}
                 {tab.badge && (

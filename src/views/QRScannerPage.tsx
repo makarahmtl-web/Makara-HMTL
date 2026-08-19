@@ -38,23 +38,23 @@ export const QRScannerPage: React.FC<QRScannerPageProps> = ({ onClose, onScanSuc
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#F5F7FA] max-w-md mx-auto flex flex-col h-screen font-sans text-[#2D3436]">
+    <div className="fixed inset-0 z-50 bg-[#F5F7FA] max-w-md mx-auto flex flex-col h-screen font-sans text-black">
       {/* Header */}
       <div className="h-[48px] bg-white border-b border-gray-100 flex items-center justify-between px-3 shadow-2xs">
         <div className="flex items-center space-x-2">
           <button
             onClick={onClose}
-            className="p-1 -ml-1 text-gray-500 hover:text-[#6C63FF] hover:bg-gray-100 rounded-full transition-colors"
+            className="p-1 -ml-1 text-black font-bold hover:text-[#6C63FF] hover:bg-gray-100 rounded-full transition-colors"
           >
             <ArrowLeft className="w-[18px] h-[18px]" />
           </button>
-          <h2 className="text-[15px] font-black text-gray-900 tracking-tight">
+          <h2 className="text-[15px] font-bold text-black tracking-tight">
             📷 ស្កេន QR Code
           </h2>
         </div>
         <button
           onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 rounded-full"
+          className="p-1 text-[#111111] font-bold hover:text-black font-bold rounded-full"
         >
           <X className="w-4 h-4" />
         </button>
@@ -62,7 +62,7 @@ export const QRScannerPage: React.FC<QRScannerPageProps> = ({ onClose, onScanSuc
 
       {/* Body */}
       <div className="flex-1 p-4 flex flex-col items-center justify-center text-center">
-        <p className="text-xs text-gray-500 mb-6">
+        <p className="text-xs font-bold text-black font-bold mb-6">
           ស្កេន QR Code ដើម្បីស្វែងរក និងបន្ថែមមិត្តភក្តិនៅលើ Hugi
         </p>
 
@@ -89,7 +89,7 @@ export const QRScannerPage: React.FC<QRScannerPageProps> = ({ onClose, onScanSuc
 
         {/* Error Notification */}
         {errorMsg && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center space-x-2 text-red-600 text-xs animate-in fade-in">
+          <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center space-x-2 text-red-600 text-xs font-bold animate-in fade-in">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -102,7 +102,7 @@ export const QRScannerPage: React.FC<QRScannerPageProps> = ({ onClose, onScanSuc
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>រកឃើញ: @{scanResult}</span>
             </div>
-            <p className="text-[11px] text-gray-600 mb-3">
+            <p className="text-[11px] text-black font-bold mb-3">
               តើអ្នកចង់បន្ថែមអ្នកប្រើប្រាស់នេះជាមិត្តភក្តិ ឬទេ?
             </p>
             <button

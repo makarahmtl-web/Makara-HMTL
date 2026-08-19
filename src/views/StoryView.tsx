@@ -5,7 +5,6 @@ import {
   Send,
   Image as ImageIcon,
   Heart,
-  Sparkles,
   Trash2,
   MessageCircle,
   Share2,
@@ -16,9 +15,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { Story, Post, PostComment, User } from "../types";
-import { GeminiService } from "../services/gemini";
 import { FirebaseService } from "../services/firebase";
 import { formatKhmerRelativeTime } from "../utils/time";
+import { compressAndResizeImage } from "../utils/image";
 
 interface StoryViewProps {
   currentUser: User;
@@ -63,7 +62,6 @@ export const StoryView: React.FC<StoryViewProps> = ({
   const [storyImageFile, setStoryImageFile] = useState<File | null>(null);
   const [storyImagePreview, setStoryImagePreview] = useState<string | null>(null);
   const [isPublishingStory, setIsPublishingStory] = useState(false);
-  const [isGeneratingStoryCaption, setIsGeneratingStoryCaption] = useState(false);
 
   // Create Post Modal State
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
@@ -71,7 +69,6 @@ export const StoryView: React.FC<StoryViewProps> = ({
   const [postImageFile, setPostImageFile] = useState<File | null>(null);
   const [postImagePreview, setPostImagePreview] = useState<string | null>(null);
   const [isPublishingPost, setIsPublishingPost] = useState(false);
-  const [isGeneratingPostCaption, setIsGeneratingPostCaption] = useState(false);
 
   // Post Comments Drawer / Inline State
   const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
@@ -159,33 +156,21 @@ export const StoryView: React.FC<StoryViewProps> = ({
   };
 
   // Story Image Picker
-  const handleStoryImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleStoryImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setStoryImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setStoryImagePreview(event.target?.result as string);
-        setStoryCreateType("image");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // AI Caption for Story
-  const handleGenerateStoryCaption = async () => {
-    setIsGeneratingStoryCaption(true);
-    try {
-      const prompt =
-        storyCreateType === "image"
-          ? "សរសេរ caption ដ៏ទាក់ទាញ ខ្លី និងមានភាពរីករាយសម្រាប់ Story នេះជាភាសាខ្មែរ រួមជាមួយ emojis"
-          : "សរសេរសម្រង់សម្តីលើកទឹកចិត្ត ឬពាក្យជូនពរប្រចាំថ្ងៃខ្លីមួយជាភាសាខ្មែរ សម្រាប់ Story";
-      const caption = await GeminiService.chatWithAI(prompt);
-      setStoryText(caption.replace(/^"|"$/g, "").trim());
-    } catch {
-      setStoryText("សូមឱ្យថ្ងៃនេះជាថ្ងៃដ៏ស្រស់បំព្រង និងពោរពេញដោយក្តីសុខ! ✨🌸");
-    } finally {
-      setIsGeneratingStoryCaption(false);
+      try {
+        const compressed = await compressAndResizeImage(file);
+        setStoryImageFile(compressed);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setStoryImagePreview(event.target?.result as string);
+          setStoryCreateType("image");
+        };
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error("Story image compress error:", err);
+      }
     }
   };
 
@@ -261,31 +246,20 @@ export const StoryView: React.FC<StoryViewProps> = ({
   };
 
   // Post Image Picker
-  const handlePostImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePostImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPostImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPostImagePreview(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // AI Caption for Post
-  const handleGeneratePostCaption = async () => {
-    setIsGeneratingPostCaption(true);
-    try {
-      const prompt = postImagePreview
-        ? "សរសេរសំណេរ status ឬ caption បង្ហោះលើ Facebook ដ៏ទាក់ទាញ ស៊ីអារម្មណ៍ និងមាន emojis ជាភាសាខ្មែរ"
-        : "សរសេរ status បង្ហាញពីគំនិតវិជ្ជមាន ឬការចែករំលែកអារម្មណ៍ដ៏កក់ក្តៅប្រចាំថ្ងៃជាភាសាខ្មែរ";
-      const caption = await GeminiService.chatWithAI(prompt);
-      setPostText(caption.replace(/^"|"$/g, "").trim());
-    } catch {
-      setPostText("ថ្ងៃថ្មី ឱកាសថ្មី! សូមជូនពរអ្នកទាំងអស់គ្នាជួបតែសំណាងល្អ និងសេចក្តីសុខ 💖✨");
-    } finally {
-      setIsGeneratingPostCaption(false);
+      try {
+        const compressed = await compressAndResizeImage(file, 800, 0.7);
+        setPostImageFile(compressed);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setPostImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(compressed);
+      } catch (err) {
+        console.error("Post image compress error:", err);
+      }
     }
   };
 
@@ -315,9 +289,13 @@ export const StoryView: React.FC<StoryViewProps> = ({
       setPostImagePreview(null);
       setShowCreatePostModal(false);
       showToast("បានបង្ហោះ Status របស់អ្នកដោយជោគជ័យ! 🚀");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Publish post error:", err);
-      showToast("មានបញ្ហាក្នុងការបង្ហោះ Status");
+      if (err.message && err.message.includes("payload")) {
+        showToast("រូបភាពធំពេក សូមជ្រើសរើសរូបភាពតូចជាងនេះ (Image too large)");
+      } else {
+        showToast("មានបញ្ហាក្នុងការបង្ហោះ (Error posting)");
+      }
     } finally {
       setIsPublishingPost(false);
     }
@@ -373,10 +351,10 @@ export const StoryView: React.FC<StoryViewProps> = ({
       : null;
 
   return (
-    <div className="flex flex-col min-h-full pb-24 max-w-md mx-auto px-3 pt-3 font-sans text-[#2D3436]">
+    <div className="flex flex-col min-h-full pb-24 max-w-md mx-auto px-3 pt-3 font-sans text-black">
       {/* Toast Notification Pop-up */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 backdrop-blur-md text-white text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-3">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 backdrop-blur-md text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-xl flex items-center space-x-2 animate-in fade-in slide-in-from-top-3">
           <Check className="w-4 h-4 text-green-400" />
           <span>{toastMessage}</span>
         </div>
@@ -385,10 +363,10 @@ export const StoryView: React.FC<StoryViewProps> = ({
       {/* Top Header */}
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h1 className="text-[18px] font-black text-gray-900 tracking-tight leading-tight flex items-center space-x-1.5">
+          <h1 className="text-[18px] font-bold text-black tracking-tight leading-tight flex items-center space-x-1.5">
             <span>ទំព័រព័ត៌មាន និង Stories</span>
           </h1>
-          <p className="text-[11px] text-gray-500 font-medium mt-0.5 flex items-center space-x-1">
+          <p className="text-[11px] text-black font-bold mt-0.5 flex items-center space-x-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>ផ្សាយផ្ទាល់ Realtime • រឿងរ៉ាវប្រចាំថ្ងៃ</span>
           </p>
@@ -423,7 +401,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-full bg-[#6C63FF] text-white text-lg font-bold flex items-center justify-center">
+                <div className="w-11 h-11 rounded-full bg-[#6C63FF] text-white text-lg font-bold flex items-center justify-center">
                   {currentUser.name.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -436,7 +414,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
 
             {/* Bottom Half Label */}
             <div className="flex-1 bg-white pt-4 pb-1.5 px-1 flex items-center justify-center text-center">
-              <span className="text-[11px] font-bold text-gray-800 leading-tight">
+              <span className="text-[11px] font-bold text-black leading-tight">
                 បង្កើត Story
               </span>
             </div>
@@ -462,7 +440,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   <div
                     className={`w-full h-full bg-gradient-to-br ${
                       story.bgColor || "from-[#6C63FF] to-[#3B82F6]"
-                    } p-2 flex items-center justify-center text-center text-white text-[10px] font-semibold leading-snug`}
+                    } p-2 flex items-center justify-center text-center text-white text-[10px] font-bold leading-snug`}
                   >
                     <span className="line-clamp-4">{story.text}</span>
                   </div>
@@ -491,7 +469,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   <p className="text-[11px] font-bold truncate drop-shadow-xs leading-tight">
                     {isMine ? "Story របស់អ្នក" : story.userName}
                   </p>
-                  <p className="text-[9px] text-white/80 font-medium">
+                  <p className="text-[9px] text-white/80 font-bold">
                     {formatKhmerRelativeTime(story.createdAt)}
                   </p>
                 </div>
@@ -522,14 +500,14 @@ export const StoryView: React.FC<StoryViewProps> = ({
 
           <button
             onClick={() => setShowCreatePostModal(true)}
-            className="flex-1 bg-gray-100 hover:bg-gray-200/80 transition-colors text-left px-3.5 py-2 rounded-full text-[12px] text-gray-500 font-medium truncate"
+            className="flex-1 bg-gray-100 hover:bg-gray-200/80 transition-colors text-left px-3.5 py-2 rounded-full text-[12px] text-black font-bold truncate"
           >
             តើ {currentUser.name} កំពុងគិតអ្វី?...
           </button>
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="grid grid-cols-3 gap-1 pt-2">
+        <div className="grid grid-cols-2 gap-2 pt-2">
           <button
             onClick={() => {
               setShowCreatePostModal(true);
@@ -538,18 +516,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
             className="flex items-center justify-center space-x-1.5 py-1.5 rounded-xl hover:bg-green-50 text-green-600 transition-colors text-[11px] font-bold"
           >
             <ImageIcon className="w-4 h-4 text-green-500" />
-            <span>រូបភាព</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setShowCreatePostModal(true);
-              handleGeneratePostCaption();
-            }}
-            className="flex items-center justify-center space-x-1.5 py-1.5 rounded-xl hover:bg-indigo-50 text-[#6C63FF] transition-colors text-[11px] font-bold"
-          >
-            <Sparkles className="w-4 h-4 text-[#6C63FF]" />
-            <span>តែងដោយ AI</span>
+            <span>រូបភាព (Photo)</span>
           </button>
 
           <button
@@ -557,7 +524,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
             className="flex items-center justify-center space-x-1.5 py-1.5 rounded-xl hover:bg-amber-50 text-amber-600 transition-colors text-[11px] font-bold"
           >
             <Smile className="w-4 h-4 text-amber-500" />
-            <span>អារម្មណ៍</span>
+            <span>អារម្មណ៍/សកម្មភាព</span>
           </button>
         </div>
       </div>
@@ -567,21 +534,21 @@ export const StoryView: React.FC<StoryViewProps> = ({
           ======================================================== */}
       <div className="space-y-3.5">
         {isLoadingFeed ? (
-          <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-2xs flex flex-col items-center justify-center space-y-2">
-            <Loader2 className="w-6 h-6 text-[#6C63FF] animate-spin" />
-            <p className="text-xs text-gray-500 font-medium">
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-2xs flex flex-col items-center justify-center space-y-2">
+            <Loader2 className="w-5 h-5 text-[#6C63FF] animate-spin" />
+            <p className="text-xs font-bold text-black font-bold">
               កំពុងទាញយកទំព័រព័ត៌មានផ្ទាល់...
             </p>
           </div>
         ) : realtimePosts.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-2xs text-center">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-[#6C63FF] mx-auto flex items-center justify-center mb-3">
-              <Sparkles className="w-7 h-7" />
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#6C63FF] mx-auto flex items-center justify-center mb-3">
+              <MessageCircle className="w-7 h-7" />
             </div>
-            <h3 className="text-[14px] font-bold text-gray-900 mb-1">
+            <h3 className="text-[14px] font-bold text-black mb-1">
               មិនទាន់មានការបង្ហោះនៅឡើយទេ
             </h3>
-            <p className="text-[12px] text-gray-500 max-w-xs mx-auto mb-4">
+            <p className="text-[12px] text-black font-bold max-w-xs mx-auto mb-4">
               ក្លាយជាអ្នកដំបូងគេដែលចែករំលែក status ឬរូបភាពដ៏ស្រស់ស្អាតលើ Hugi!
             </p>
             <button
@@ -621,19 +588,19 @@ export const StoryView: React.FC<StoryViewProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center space-x-1.5">
-                        <h4 className="text-[13px] font-bold text-gray-900 leading-tight">
+                        <h4 className="text-[13px] font-bold text-black leading-tight">
                           {post.userName}
                         </h4>
                         {post.userUsername && (
-                          <span className="text-[10px] text-gray-400 font-medium">
+                          <span className="text-[10px] text-[#111111] font-bold">
                             @{post.userUsername.replace(/^@/, "")}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center space-x-1.5 text-[10px] text-gray-400 mt-0.5">
+                      <div className="flex items-center space-x-1.5 text-[10px] text-[#111111] font-bold mt-0.5">
                         <span>{formatKhmerRelativeTime(post.createdAt)}</span>
                         <span>•</span>
-                        <Globe className="w-3 h-3 text-gray-400" />
+                        <Globe className="w-3 h-3 text-[#111111] font-bold" />
                         <span>សាធារណៈ</span>
                       </div>
                     </div>
@@ -643,7 +610,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   {isMyPost && (
                     <button
                       onClick={() => handleDeletePost(post.id)}
-                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1.5 text-[#111111] font-bold hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       title="លុបការបង្ហោះ"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -654,7 +621,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 {/* Post Text Content */}
                 {post.text && (
                   <div className="px-3.5 pb-3">
-                    <p className="text-[13px] text-gray-800 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-[13px] text-black leading-relaxed whitespace-pre-wrap">
                       {post.text}
                     </p>
                   </div>
@@ -675,20 +642,20 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 )}
 
                 {/* Interaction Counters Bar */}
-                <div className="px-3.5 py-2 flex items-center justify-between text-[11px] text-gray-500 border-b border-gray-100">
+                <div className="px-3.5 py-2 flex items-center justify-between text-[11px] text-black font-bold border-b border-gray-100">
                   <div className="flex items-center space-x-1">
                     {post.likes.length > 0 && (
                       <span className="flex items-center space-x-1">
                         <span className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px]">
                           ❤️
                         </span>
-                        <span className="font-semibold text-gray-700">
+                        <span className="font-bold text-black">
                           {post.likes.length} នាក់
                         </span>
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center space-x-3 text-gray-500">
+                  <div className="flex items-center space-x-3 text-black font-bold">
                     <span>{commentsList.length} មតិយោបល់</span>
                   </div>
                 </div>
@@ -700,7 +667,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                     className={`flex items-center justify-center space-x-1.5 py-1.5 rounded-xl transition-all text-[12px] font-bold ${
                       isLiked
                         ? "text-red-500 bg-red-50"
-                        : "text-gray-600 hover:bg-gray-100"
+                        : "text-black font-bold hover:bg-gray-100"
                     }`}
                   >
                     <Heart
@@ -718,7 +685,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                     className={`flex items-center justify-center space-x-1.5 py-1.5 rounded-xl transition-all text-[12px] font-bold ${
                       isCommentsOpen
                         ? "text-[#6C63FF] bg-indigo-50"
-                        : "text-gray-600 hover:bg-gray-100"
+                        : "text-black font-bold hover:bg-gray-100"
                     }`}
                   >
                     <MessageCircle className="w-4 h-4" />
@@ -727,7 +694,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
 
                   <button
                     onClick={() => handleSharePost(post)}
-                    className="flex items-center justify-center space-x-1.5 py-1.5 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors text-[12px] font-bold"
+                    className="flex items-center justify-center space-x-1.5 py-1.5 rounded-xl text-black hover:bg-gray-100 transition-colors text-[12px] font-bold"
                   >
                     <Share2 className="w-4 h-4" />
                     <span>ចែករំលែក</span>
@@ -760,14 +727,14 @@ export const StoryView: React.FC<StoryViewProps> = ({
                             </div>
                             <div className="flex-1 bg-white p-2.5 rounded-2xl rounded-tl-xs border border-gray-100 shadow-2xs">
                               <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] font-bold text-gray-900">
+                                <span className="text-[11px] font-bold text-black">
                                   {cmt.userName}
                                 </span>
-                                <span className="text-[9px] text-gray-400">
+                                <span className="text-[9px] text-[#111111] font-bold">
                                   {formatKhmerRelativeTime(cmt.createdAt)}
                                 </span>
                               </div>
-                              <p className="text-[12px] text-gray-800 leading-snug">
+                              <p className="text-[12px] text-black leading-snug">
                                 {cmt.text}
                               </p>
                             </div>
@@ -775,7 +742,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-center text-[11px] text-gray-400 py-1">
+                      <p className="text-center text-[11px] text-[#111111] font-bold py-1">
                         មិនទាន់មានមតិយោបល់នៅឡើយទេ។ បញ្ចេញមតិដំបូងគេ!
                       </p>
                     )}
@@ -924,7 +891,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   className="max-h-full max-w-full object-contain rounded-2xl"
                 />
                 {currentActiveStory.text && (
-                  <div className="absolute bottom-6 left-4 right-4 bg-black/60 backdrop-blur-xs text-white p-3 rounded-2xl text-center text-xs font-medium leading-relaxed">
+                  <div className="absolute bottom-6 left-4 right-4 bg-black/60 backdrop-blur-xs text-white p-3 rounded-2xl text-center text-xs font-bold leading-relaxed">
                     {currentActiveStory.text}
                   </div>
                 )}
@@ -933,7 +900,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
               <div
                 className={`w-full h-[75%] rounded-3xl bg-gradient-to-br ${
                   currentActiveStory.bgColor || "from-purple-600 to-indigo-600"
-                } flex items-center justify-center p-6 text-center shadow-2xl`}
+                } flex items-center justify-center p-4 text-center shadow-2xl`}
               >
                 <p className="text-white text-lg font-bold leading-relaxed whitespace-pre-wrap">
                   {currentActiveStory.text}
@@ -994,12 +961,12 @@ export const StoryView: React.FC<StoryViewProps> = ({
           <div className="bg-white rounded-2xl max-w-sm w-full p-4 border border-gray-100 shadow-2xl relative animate-in fade-in zoom-in-95">
             <button
               onClick={() => setShowCreateStoryModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 p-1"
+              className="absolute top-3 right-3 text-[#111111] font-bold hover:text-black font-bold p-1"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="font-bold text-[14px] text-gray-900 mb-3">
+            <h3 className="font-bold text-[14px] text-black mb-3">
               បង្កើត Story ថ្មី (Realtime 24h)
             </h3>
 
@@ -1010,7 +977,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 className={`py-1.5 text-[12px] font-bold rounded-lg transition-all ${
                   storyCreateType === "text"
                     ? "bg-white text-[#6C63FF] shadow-2xs"
-                    : "text-gray-500"
+                    : "text-black font-bold"
                 }`}
               >
                 អត្ថបទ (Text)
@@ -1023,7 +990,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 className={`py-1.5 text-[12px] font-bold rounded-lg transition-all ${
                   storyCreateType === "image"
                     ? "bg-white text-[#6C63FF] shadow-2xs"
-                    : "text-gray-500"
+                    : "text-black font-bold"
                 }`}
               >
                 រូបភាព (Photo)
@@ -1046,7 +1013,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 </div>
 
                 <div>
-                  <div className="text-[10px] font-bold text-gray-400 mb-1.5 uppercase tracking-wider">
+                  <div className="text-[10px] font-bold text-[#111111] mb-1.5 uppercase tracking-wider">
                     ជ្រើសរើសពណ៌ផ្ទៃខាងក្រោយ
                   </div>
                   <div className="flex space-x-2">
@@ -1054,7 +1021,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
                       <button
                         key={bg}
                         onClick={() => setStoryBg(bg)}
-                        className={`w-6 h-6 rounded-full bg-gradient-to-br ${bg} ${
+                        className={`w-5 h-5 rounded-full bg-gradient-to-br ${bg} ${
                           storyBg === bg
                             ? "ring-2 ring-offset-1 ring-[#6C63FF]"
                             : ""
@@ -1078,9 +1045,9 @@ export const StoryView: React.FC<StoryViewProps> = ({
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="flex flex-col items-center text-gray-400">
+                    <div className="flex flex-col items-center text-[#111111] font-bold">
                       <ImageIcon className="w-8 h-8 mb-1" />
-                      <span className="text-[11px] font-medium">
+                      <span className="text-[11px] font-bold">
                         ចុចដើម្បីជ្រើសរើសរូបភាព
                       </span>
                     </div>
@@ -1100,24 +1067,10 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   value={storyText}
                   onChange={(e) => setStoryText(e.target.value)}
                   placeholder="បន្ថែម Caption រូបភាព..."
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 h-[38px] text-[12px] text-gray-800 focus:outline-none focus:border-[#6C63FF]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 h-[38px] text-[12px] text-black focus:outline-none focus:border-[#6C63FF]"
                 />
               </div>
             )}
-
-            {/* AI Assist Button */}
-            <button
-              onClick={handleGenerateStoryCaption}
-              disabled={isGeneratingStoryCaption}
-              className="w-full mt-2.5 py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-[#6C63FF] rounded-xl text-[11px] font-bold flex items-center justify-center space-x-1.5 transition-colors border border-indigo-100"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                {isGeneratingStoryCaption
-                  ? "កំពុងតែង Caption ដោយ AI..."
-                  : "បង្កើត Caption ស្វ័យប្រវត្តិតាមរយៈ AI"}
-              </span>
-            </button>
 
             {/* Submit Button */}
             <button
@@ -1151,12 +1104,12 @@ export const StoryView: React.FC<StoryViewProps> = ({
           <div className="bg-white rounded-2xl max-w-sm w-full p-4 border border-gray-100 shadow-2xl relative animate-in fade-in zoom-in-95">
             <button
               onClick={() => setShowCreatePostModal(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 p-1"
+              className="absolute top-3 right-3 text-[#111111] font-bold hover:text-black font-bold p-1"
             >
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="font-bold text-[15px] text-gray-900 mb-3 text-center border-b border-gray-100 pb-2.5">
+            <h3 className="font-bold text-[15px] text-black mb-3 text-center border-b border-gray-100 pb-2.5">
               បង្កើតការបង្ហោះថ្មី (Create Post)
             </h3>
 
@@ -1176,10 +1129,10 @@ export const StoryView: React.FC<StoryViewProps> = ({
                 )}
               </div>
               <div>
-                <h4 className="text-[13px] font-bold text-gray-900 leading-tight">
+                <h4 className="text-[13px] font-bold text-black leading-tight">
                   {currentUser.name}
                 </h4>
-                <div className="flex items-center space-x-1 text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full w-fit mt-0.5 font-medium">
+                <div className="flex items-center space-x-1 text-[10px] text-black font-bold bg-gray-100 px-2 py-0.5 rounded-full w-fit mt-0.5 font-bold">
                   <Globe className="w-2.5 h-2.5" />
                   <span>សាធារណៈ</span>
                 </div>
@@ -1192,7 +1145,7 @@ export const StoryView: React.FC<StoryViewProps> = ({
               onChange={(e) => setPostText(e.target.value)}
               placeholder={`តើ ${currentUser.name} កំពុងគិតអ្វី? ចែករំលែកជាមួយមិត្តភក្តិរបស់អ្នក...`}
               rows={4}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-[13px] text-gray-800 placeholder-gray-400 resize-none focus:outline-none focus:border-[#6C63FF]"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-[13px] text-black placeholder-gray-400 resize-none focus:outline-none focus:border-[#6C63FF]"
             />
 
             {/* Image Preview Box if attached */}
@@ -1223,9 +1176,9 @@ export const StoryView: React.FC<StoryViewProps> = ({
               onChange={handlePostImageSelect}
             />
 
-            {/* Attachments & AI Assist Action Box */}
+            {/* Attachments Action Box */}
             <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
-              <span className="text-[11px] font-bold text-gray-600 pl-1">
+              <span className="text-[11px] font-bold text-black pl-1">
                 បន្ថែមទៅការបង្ហោះរបស់អ្នក
               </span>
               <div className="flex items-center space-x-1">
@@ -1235,14 +1188,6 @@ export const StoryView: React.FC<StoryViewProps> = ({
                   title="បន្ថែមរូបភាព"
                 >
                   <ImageIcon className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleGeneratePostCaption}
-                  disabled={isGeneratingPostCaption}
-                  className="p-1.5 rounded-lg hover:bg-indigo-50 text-[#6C63FF] transition-colors"
-                  title="ជំនួយការតែងអត្ថបទ AI"
-                >
-                  <Sparkles className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -1278,9 +1223,9 @@ export const StoryView: React.FC<StoryViewProps> = ({
         >
           <button
             onClick={() => setLightboxImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 bg-black/50 rounded-full"
+            className="absolute top-4 right-4 text-white hover:text-slate-400 p-2 bg-black/50 rounded-full"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
           <img
             src={lightboxImage}

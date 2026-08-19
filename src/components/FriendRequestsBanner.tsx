@@ -1,6 +1,7 @@
 import React from "react";
 import { FriendRequest } from "../types";
 import { UserCheck, UserX, Clock, Check, X, Sparkles, MessageSquare } from "lucide-react";
+import { sanitizeAvatarUrl } from "../utils/avatars";
 
 interface FriendRequestsBannerProps {
   incomingRequests: FriendRequest[];
@@ -22,14 +23,14 @@ export const FriendRequestsBanner: React.FC<FriendRequestsBannerProps> = ({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center space-x-1.5">
           <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-          <h3 className="text-[12px] font-bold text-gray-900 tracking-tight flex items-center gap-1">
+          <h3 className="text-[12px] font-bold text-black tracking-tight flex items-center gap-1">
             <span>សំណើមិត្តភក្តិថ្មី (Friend Requests)</span>
             <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
               {pendingRequests.length}
             </span>
           </h3>
         </div>
-        <span className="text-[10px] text-amber-700 font-semibold flex items-center gap-0.5">
+        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-0.5">
           <Clock className="w-3 h-3" />
           <span>រង់ចាំការឆ្លើយតប</span>
         </span>
@@ -43,21 +44,19 @@ export const FriendRequestsBanner: React.FC<FriendRequestsBannerProps> = ({
           >
             <div className="flex items-center space-x-2.5 min-w-0">
               <img
-                src={
-                  req.fromUserAvatar ||
-                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.fromUserUsername || req.fromUserName}`
-                }
+                src={sanitizeAvatarUrl(req.fromUserAvatar, req.fromUserUsername || req.fromUserName)}
                 alt={req.fromUserName}
                 className="w-[36px] h-[36px] rounded-full object-cover border border-amber-100 flex-shrink-0"
+                referrerPolicy="no-referrer"
               />
               <div className="min-w-0">
-                <h4 className="text-[12px] font-bold text-gray-900 truncate">
+                <h4 className="text-[12px] font-bold text-black truncate">
                   {req.fromUserName}
                 </h4>
-                <p className="text-[10px] text-[#6C63FF] font-semibold flex items-center space-x-0.5 truncate">
+                <p className="text-[10px] text-[#6C63FF] font-bold flex items-center space-x-0.5 truncate">
                   <span>@{req.fromUserUsername || "user"}</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-gray-400">ចង់ភ្ជាប់ទំនាក់ទំនង</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-[#111111] font-bold">ចង់ភ្ជាប់ទំនាក់ទំនង</span>
                 </p>
               </div>
             </div>
@@ -65,7 +64,7 @@ export const FriendRequestsBanner: React.FC<FriendRequestsBannerProps> = ({
             <div className="flex items-center space-x-1.5 flex-shrink-0">
               <button
                 onClick={() => onDecline(req)}
-                className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-rose-50 hover:text-rose-600 text-gray-500 flex items-center justify-center text-[11px] font-bold active:scale-95 transition-all"
+                className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-rose-50 hover:text-rose-600 text-black flex items-center justify-center text-[11px] font-bold active:scale-95 transition-all"
                 title="បដិសេធ (Decline)"
               >
                 <X className="w-3.5 h-3.5" />

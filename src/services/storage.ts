@@ -1,10 +1,9 @@
-import { User, Contact, Chat, Message, Story, AIChatMessage, FriendRequest } from "../types";
+import { User, Contact, Chat, Message, Story, FriendRequest } from "../types";
 
 const USER_KEY = "hugi_current_user";
 const CHATS_KEY = "hugi_chats";
 const CONTACTS_KEY = "hugi_contacts";
 const STORIES_KEY = "hugi_stories";
-const AI_HISTORY_KEY = "hugi_ai_history";
 const FRIEND_REQUESTS_KEY = "hugi_friend_requests";
 
 export const DEFAULT_USER: User = {
@@ -13,7 +12,7 @@ export const DEFAULT_USER: User = {
   username: "user",
   email: "",
   phone: "",
-  avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=user",
+  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
   bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
   isOnline: true,
   showOnlineStatus: true,
@@ -135,23 +134,6 @@ export const StorageService = {
 
   saveStories(stories: Story[]): void {
     localStorage.setItem(STORIES_KEY, JSON.stringify(stories));
-  },
-
-  // Hugi AI History
-  getAIHistory(): AIChatMessage[] {
-    const raw = localStorage.getItem(AI_HISTORY_KEY);
-    if (!raw) {
-      return [];
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return [];
-    }
-  },
-
-  saveAIHistory(history: AIChatMessage[]): void {
-    localStorage.setItem(AI_HISTORY_KEY, JSON.stringify(history));
   },
 
   // Username validation and lookup

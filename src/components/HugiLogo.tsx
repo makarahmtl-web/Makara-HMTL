@@ -12,8 +12,8 @@ export const HugiLogo: React.FC<HugiLogoProps> = ({
   withGlow = false,
 }) => {
   const sizeClasses = {
-    sm: "w-8 h-8 text-xs",
-    md: "w-11 h-11 text-sm",
+    sm: "w-8 h-8 text-xs font-bold",
+    md: "w-11 h-11 text-sm font-bold",
     lg: "w-20 h-20 text-base",
     xl: "w-28 h-28 text-lg",
   };

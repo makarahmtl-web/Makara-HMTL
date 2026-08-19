@@ -1,6 +1,6 @@
 {
-  "name": "Hugi - Khmer Chat & AI",
-  "description": "កម្មវិធីជជែកកម្សាន្ត Hugi ជាមួយមុខងារ Story, ការផ្ញើសារ Real-time, មិត្តភក្តិ, និង Hugi AI ឆ្លើយតបជាភាសាខ្មែរជាមួយ Google Gemini",
+  "name": "Hugi - Khmer Chat & Story",
+  "description": "កម្មវិធីជជែកកម្សាន្ត Hugi ជាមួយមុខងារ Story 24h, ការផ្ញើសារ Real-time, មិត្តភក្តិ, និងការចែករំលែកប្រវត្តិរូប QR Code",
   "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

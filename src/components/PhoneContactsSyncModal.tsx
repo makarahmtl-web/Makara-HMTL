@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { User, Contact } from "../types";
+import { sanitizeAvatarUrl } from "../utils/avatars";
 
 export interface DevicePhoneContact {
   id: string;
@@ -165,9 +166,7 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
       phone: c.phone,
       email: c.email || "",
       username: c.hugiUsername || c.name.toLowerCase().replace(/[^a-z0-9]/g, ""),
-      avatar:
-        c.avatar ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.hugiUsername || c.name}`,
+      avatar: sanitizeAvatarUrl(c.avatar, c.hugiUsername || c.name),
       isOnline: true,
       bio: "Hugi User ✨",
     };
@@ -205,17 +204,17 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
               <Smartphone className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-[14px] font-black text-gray-900 leading-tight">
+              <h3 className="text-[14px] font-bold text-black leading-tight">
                 Phone Contacts
               </h3>
-              <p className="text-[10px] text-gray-500 font-medium">
+              <p className="text-[10px] text-black font-bold">
                 បញ្ជីឈ្មោះក្នុងទូរស័ព្ទដៃ
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center text-[12px] font-bold"
+            className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-black flex items-center justify-center text-[12px] font-bold"
           >
             ✕
           </button>
@@ -224,13 +223,13 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
         {!hasPermission ? (
           /* Permission Request View */
           <div className="py-6 px-2 text-center flex flex-col items-center">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-[#6C63FF] flex items-center justify-center mb-3 shadow-inner">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#6C63FF] flex items-center justify-center mb-3 shadow-inner">
               <ShieldCheck className="w-7 h-7" />
             </div>
-            <h4 className="text-[15px] font-bold text-gray-900 mb-1.5">
+            <h4 className="text-[15px] font-bold text-black mb-1.5">
               ស្វែងរកមិត្តភក្តិដែលប្រើ Hugi
             </h4>
-            <p className="text-[11px] text-gray-500 leading-relaxed max-w-[260px] mb-5">
+            <p className="text-[11px] text-black font-bold leading-relaxed max-w-[260px] mb-5">
               អនុញ្ញាតឱ្យ Hugi ពិនិត្យលេខទូរស័ព្ទក្នុងឧបករណ៍ ដើម្បីរកមើលថាតើមិត្តភក្តិណាខ្លះមានគណនី Hugi រួចហើយ។
             </p>
 
@@ -257,7 +256,7 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
           <div className="flex flex-col flex-1 min-h-0">
             {/* Search within device contacts */}
             <div className="relative mb-2.5">
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
+              <Search className="w-3.5 h-3.5 text-[#111111] font-bold absolute left-2.5 top-2.5" />
               <input
                 type="text"
                 value={searchQuery}
@@ -268,7 +267,7 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
             </div>
 
             {/* Summary Tag */}
-            <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 px-1 mb-2">
+            <div className="flex items-center justify-between text-[10px] font-bold text-black px-1 mb-2">
               <span>សរុប {phoneContacts.length} លេខ</span>
               <span className="text-[#6C63FF] bg-indigo-50 px-2 py-0.5 rounded-full">
                 {hugiUsersCount} នាក់ប្រើ Hugi
@@ -288,23 +287,21 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
                 >
                   <div className="flex items-center space-x-2 min-w-0">
                     <img
-                      src={
-                        c.avatar ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.hugiUsername || c.name}`
-                      }
+                      src={sanitizeAvatarUrl(c.avatar, c.hugiUsername || c.name)}
                       alt={c.name}
                       className="w-[32px] h-[32px] rounded-full object-cover border border-gray-200 flex-shrink-0"
+                      referrerPolicy="no-referrer"
                     />
                     <div className="min-w-0">
-                      <div className="text-[12px] font-bold text-gray-900 truncate flex items-center space-x-1">
+                      <div className="text-[12px] font-bold text-black truncate flex items-center space-x-1">
                         <span>{c.name}</span>
                         {c.hasHugiAccount && (
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                         )}
                       </div>
-                      <div className="text-[10px] text-gray-400 truncate">
+                      <div className="text-[10px] text-[#111111] font-bold truncate">
                         {c.hasHugiAccount && c.hugiUsername ? (
-                          <span className="text-[#6C63FF] font-semibold">
+                          <span className="text-[#6C63FF] font-bold">
                             @{c.hugiUsername} • {c.phone}
                           </span>
                         ) : (
@@ -330,7 +327,7 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
                         className={`py-1 px-2 rounded-lg text-[10px] font-bold transition-all active:scale-95 flex items-center space-x-1 ${
                           invitedPhoneMap[c.id]
                             ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                            : "bg-gray-100 hover:bg-gray-200 text-black"
                         }`}
                       >
                         {invitedPhoneMap[c.id] ? (
@@ -340,7 +337,7 @@ export const PhoneContactsSyncModal: React.FC<PhoneContactsSyncModalProps> = ({
                           </>
                         ) : (
                           <>
-                            <Share2 className="w-2.5 h-2.5 text-gray-500" />
+                            <Share2 className="w-2.5 h-2.5 text-black font-bold" />
                             <span>Invite</span>
                           </>
                         )}

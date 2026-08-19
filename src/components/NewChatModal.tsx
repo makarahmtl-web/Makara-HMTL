@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, Search, MessageCircle, Phone, ArrowRight, AtSign } from "lucide-react";
 import { Contact, User } from "../types";
+import { sanitizeAvatarUrl } from "../utils/avatars";
 
 interface NewChatModalProps {
   contacts: Contact[];
@@ -45,18 +46,18 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-4 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh] font-sans text-[#2D3436]">
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-4 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[85vh] font-sans text-black">
         {/* Header */}
         <div className="flex items-center justify-between pb-2.5 border-b border-gray-100">
           <div className="flex items-center space-x-2">
             <div className="w-7 h-7 rounded-full bg-[#6C63FF]/10 text-[#6C63FF] flex items-center justify-center">
               <MessageCircle className="w-4 h-4" />
             </div>
-            <h3 className="font-bold text-[14px] text-gray-800">ការសន្ទនាថ្មី</h3>
+            <h3 className="font-bold text-[14px] text-black">ការសន្ទនាថ្មី</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+            className="text-[#111111] font-bold hover:text-black font-bold p-1 rounded-full hover:bg-gray-100"
           >
             <X className="w-4 h-4" />
           </button>
@@ -65,7 +66,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
         {/* Search Contact Input */}
         <div className="my-2.5">
           <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#111111] font-bold absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
@@ -79,7 +80,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
         {/* Contacts List */}
         <div className="flex-1 overflow-y-auto space-y-1.5 max-h-[250px] pr-1">
           {filteredContacts.length === 0 ? (
-            <div className="text-center py-4 text-gray-400 text-[12px]">
+            <div className="text-center py-4 text-[#111111] font-bold text-[12px]">
               រកមិនឃើញមិត្តភក្តិទេ
             </div>
           ) : (
@@ -94,23 +95,21 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
               >
                 <div className="flex items-center space-x-2 min-w-0">
                   <img
-                    src={
-                      contact.avatar ||
-                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${contact.name}`
-                    }
+                    src={sanitizeAvatarUrl(contact.avatar, contact.name)}
                     alt={contact.name}
                     className="w-[32px] h-[32px] rounded-full object-cover border border-gray-100"
+                    referrerPolicy="no-referrer"
                   />
                   <div className="min-w-0">
-                    <div className="text-[12px] font-bold text-gray-800 truncate group-hover:text-[#6C63FF]">
+                    <div className="text-[12px] font-bold text-black truncate group-hover:text-[#6C63FF]">
                       {contact.name}
                     </div>
-                    <div className="text-[10px] text-gray-400 truncate">
+                    <div className="text-[10px] text-[#111111] font-bold truncate">
                       {contact.username ? `@${contact.username}` : contact.phone}
                     </div>
                   </div>
                 </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-300 group-hover:text-[#6C63FF] transition-colors" />
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#6C63FF] transition-colors" />
               </div>
             ))
           )}
@@ -121,7 +120,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           {!showAddForm ? (
             <button
               onClick={() => setShowAddForm(true)}
-              className="w-full py-2 bg-gray-50 hover:bg-[#6C63FF]/10 text-gray-700 hover:text-[#6C63FF] rounded-xl text-[12px] font-bold transition-all border border-gray-200"
+              className="w-full py-2 bg-gray-50 hover:bg-[#6C63FF]/10 text-black hover:text-[#6C63FF] rounded-xl text-[12px] font-bold transition-all border border-gray-200"
             >
               + បន្ថែមមិត្តភក្តិថ្មីដោយផ្ទាល់
             </button>
@@ -154,7 +153,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="flex-1 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-[11px] font-bold"
+                  className="flex-1 py-1.5 rounded-lg bg-gray-100 text-black text-[11px] font-bold"
                 >
                   បោះបង់
                 </button>

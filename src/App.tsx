@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { User, Chat, Story, Contact, FriendRequest } from "./types";
 import { StorageService, DEFAULT_USER } from "./services/storage";
 import { FirebaseService, auth, db } from "./services/firebase";
+import { getRealAvatar, sanitizeAvatarUrl } from "./utils/avatars";
+import { playChimeNotification } from "./utils/audio";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { TopHeader } from "./components/TopHeader";
@@ -10,12 +12,10 @@ import { LoginView } from "./views/LoginView";
 import { ChatListView } from "./views/ChatListView";
 import { ChatDetailView } from "./views/ChatDetailView";
 import { StoryView } from "./views/StoryView";
-import { AIView } from "./views/AIView";
 import { ContactsView } from "./views/ContactsView";
 import { ProfileView } from "./views/ProfileView";
 import { MyQRCodeModal } from "./components/MyQRCodeModal";
 import { ScanQRCodeModal } from "./components/ScanQRCodeModal";
-import { FloatingAIChat } from "./components/FloatingAIChat";
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -26,10 +26,15 @@ export default function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
 
-  // QR Modal States & Floating AI Chat State
+  // QR Modal States
   const [showMyQRModal, setShowMyQRModal] = useState(false);
   const [showScanQRModal, setShowScanQRModal] = useState(false);
-  const [showFloatingAIChat, setShowFloatingAIChat] = useState(false);
+  const prevChatsRef = React.useRef<Record<string, string>>({});
+  const activeChatIdRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    activeChatIdRef.current = activeChat?.id || null;
+  }, [activeChat]);
 
   // Load Initial Data and Auth listeners
   useEffect(() => {
@@ -45,13 +50,14 @@ export default function App() {
           
           if (docSnap.exists()) {
             const data = docSnap.data();
+            const realPhoto = firebaseUser.photoURL || data.avatar || data.photoURL;
             localUser = {
               id: firebaseUser.uid,
               name: data.displayName || data.name || firebaseUser.displayName || "អ្នកប្រើប្រាស់ Hugi",
               username: data.username || "user_" + firebaseUser.uid.slice(0, 5),
               email: data.email || firebaseUser.email || "",
               phone: data.phoneNumber || data.phone || firebaseUser.phoneNumber || "",
-              avatar: data.avatar || firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              avatar: sanitizeAvatarUrl(realPhoto, firebaseUser.uid),
               bio: data.bio || "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
               isOnline: true,
               showOnlineStatus: data.showOnlineStatus !== false,
@@ -70,7 +76,7 @@ export default function App() {
               username: generatedUsername,
               email: firebaseUser.email || "",
               phone: firebaseUser.phoneNumber || "",
-              avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              avatar: sanitizeAvatarUrl(firebaseUser.photoURL, firebaseUser.uid),
               bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
               isOnline: true,
               showOnlineStatus: true,
@@ -114,7 +120,7 @@ export default function App() {
               username: "user_" + firebaseUser.uid.slice(0, 5),
               email: firebaseUser.email || "",
               phone: firebaseUser.phoneNumber || "",
-              avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              avatar: sanitizeAvatarUrl(firebaseUser.photoURL, firebaseUser.uid),
               bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
               isOnline: true,
               showOnlineStatus: true,
@@ -139,6 +145,41 @@ export default function App() {
     const loadedChats = StorageService.getChats();
     setChats(loadedChats);
 
+    // Real-time chat list listener
+    let unsubChats = () => {};
+    const localUser = StorageService.getUser();
+    if (localUser && localUser.id) {
+      unsubChats = FirebaseService.listenToUserChats(localUser.id, (chatsList) => {
+        let hasNewIncoming = false;
+        const newMap: Record<string, string> = {};
+        
+        chatsList.forEach(c => {
+          if (c.lastMessage) {
+            newMap[c.id] = c.lastMessage.id;
+            const prevLastMsgId = prevChatsRef.current[c.id];
+            if (prevLastMsgId && prevLastMsgId !== c.lastMessage.id && c.lastMessage.senderId !== localUser.id) {
+              // Wait, we don't want to play it twice if they are in the active chat
+              // We can check if activeChat?.id !== c.id
+              // But we can't easily access the current state of activeChat here reliably unless we use a ref for activeChat
+              // Let's just play it.
+              if (activeChatIdRef.current !== c.id) hasNewIncoming = true;
+            } else if (!prevLastMsgId && Object.keys(prevChatsRef.current).length > 0 && c.lastMessage.senderId !== localUser.id) {
+               // new chat with a message
+               if (activeChatIdRef.current !== c.id) hasNewIncoming = true;
+            }
+          }
+        });
+        
+        if (hasNewIncoming) {
+          playChimeNotification();
+        }
+        
+        prevChatsRef.current = newMap;
+        setChats(chatsList);
+        StorageService.saveChats(chatsList);
+      });
+    }
+
     const loadedStories = StorageService.getStories();
     setStories(loadedStories);
 
@@ -157,6 +198,7 @@ export default function App() {
     return () => {
       unsubscribe();
       unsubStories();
+      unsubChats();
     };
   }, []);
 
@@ -308,9 +350,7 @@ export default function App() {
       username: cleanUsername,
       phone,
       email: email || `${cleanUsername}@gmail.com`,
-      avatar:
-        avatar ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanUsername}`,
+      avatar: sanitizeAvatarUrl(avatar, cleanUsername || name),
       isOnline: true,
       bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
     };
@@ -346,6 +386,61 @@ export default function App() {
     }
   };
 
+  // Friend Request Handlers
+  const handleSendFriendRequest = async (targetUser: Contact | User) => {
+    if (!currentUser) return;
+    try {
+      const req = await FirebaseService.sendFriendRequest(currentUser, targetUser);
+      const updated = [req, ...friendRequests.filter((r) => r.id !== req.id)];
+      setFriendRequests(updated);
+      StorageService.saveFriendRequests(updated);
+    } catch (err) {
+      console.warn("Error sending friend request:", err);
+    }
+  };
+
+  const handleAcceptFriendRequest = async (req: FriendRequest) => {
+    try {
+      await FirebaseService.respondFriendRequest(req.id, "accepted");
+      const updatedReqs = friendRequests.map((r) =>
+        r.id === req.id ? { ...r, status: "accepted" as const } : r
+      );
+      setFriendRequests(updatedReqs);
+      StorageService.saveFriendRequests(updatedReqs);
+
+      // Add to contacts
+      const newContact: Contact = {
+        id: req.fromUserId,
+        name: req.fromUserName,
+        username: req.fromUserUsername || "user",
+        phone: "+855 12 345 678",
+        email: `${req.fromUserUsername || "user"}@hugi.app`,
+        avatar: req.fromUserAvatar,
+        isOnline: true,
+      };
+      if (!contacts.some((c) => c.id === newContact.id)) {
+        const updatedContacts = [newContact, ...contacts];
+        setContacts(updatedContacts);
+        StorageService.saveContacts(updatedContacts);
+      }
+    } catch (err) {
+      console.warn("Error accepting friend request:", err);
+    }
+  };
+
+  const handleDeclineFriendRequest = async (req: FriendRequest) => {
+    try {
+      await FirebaseService.respondFriendRequest(req.id, "declined");
+      const updatedReqs = friendRequests.map((r) =>
+        r.id === req.id ? { ...r, status: "declined" as const } : r
+      );
+      setFriendRequests(updatedReqs);
+      StorageService.saveFriendRequests(updatedReqs);
+    } catch (err) {
+      console.warn("Error declining friend request:", err);
+    }
+  };
+
   // If not logged in, show LoginView
   if (!currentUser) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
@@ -358,7 +453,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F7FA] text-[#2D3436] font-sans flex flex-col antialiased selection:bg-[#6C63FF]/20 selection:text-[#6C63FF]">
+    <div className="min-h-screen bg-[#F5F7FA] text-black font-sans flex flex-col antialiased selection:bg-[#6C63FF]/20 selection:text-[#6C63FF]">
       {/* Top Header */}
       <TopHeader
         user={currentUser}
@@ -401,8 +496,6 @@ export default function App() {
               />
             )}
 
-            {currentTab === "ai" && <AIView currentUser={currentUser} />}
-
             {currentTab === "contacts" && (
               <ContactsView
                 currentUser={currentUser}
@@ -410,9 +503,9 @@ export default function App() {
                 friendRequests={friendRequests}
                 onStartChat={handleStartChatWithContact}
                 onAddContact={handleAddNewContact}
-                onSendFriendRequest={(target) => {}}
-                onAcceptFriendRequest={(req) => {}}
-                onDeclineFriendRequest={(req) => {}}
+                onSendFriendRequest={handleSendFriendRequest}
+                onAcceptFriendRequest={handleAcceptFriendRequest}
+                onDeclineFriendRequest={handleDeclineFriendRequest}
                 onOpenScanQR={() => setShowScanQRModal(true)}
                 onOpenMyQR={() => setShowMyQRModal(true)}
               />
@@ -426,6 +519,7 @@ export default function App() {
                 onDeleteAccount={handleDeleteAccount}
                 onOpenMyQR={() => setShowMyQRModal(true)}
                 onOpenScanQR={() => setShowScanQRModal(true)}
+                onStartChat={handleStartChatWithContact}
               />
             )}
           </>
@@ -437,24 +531,13 @@ export default function App() {
         <BottomNav
           currentTab={currentTab}
           onTabChange={(tab) => {
-            if (tab === "ai") {
-              setShowFloatingAIChat(true);
-            } else {
-              setActiveChat(null);
-              setCurrentTab(tab);
-            }
+            setActiveChat(null);
+            setCurrentTab(tab);
           }}
           unreadCount={totalUnreadCount}
           hasNewStories={stories.length > 0}
         />
       )}
-
-      {/* Floating AI Chat Modal */}
-      <FloatingAIChat
-        currentUser={currentUser}
-        isOpen={showFloatingAIChat}
-        onClose={() => setShowFloatingAIChat(false)}
-      />
 
       {/* My QR Code Modal */}
       {showMyQRModal && (

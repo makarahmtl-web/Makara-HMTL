@@ -1,4 +1,6 @@
+import os
 
+content = """
 import React, { useState, useRef, useEffect } from "react";
 import {
   Camera,
@@ -143,8 +145,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         avatar: finalAvatarUrl,
       };
 
-      await FirebaseService.saveUserProfile(updatedUser, user.username);
-      StorageService.saveUser(updatedUser);
+      await FirebaseService.updateUser(updatedUser);
+      StorageService.setCurrentUser(updatedUser);
       onUpdateProfile(updatedUser);
       setShowEditProfile(false);
     } catch (err) {
@@ -166,8 +168,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         showBirthYear,
         showMaritalStatus,
       };
-      await FirebaseService.saveUserProfile(updatedUser, user.username);
-      StorageService.saveUser(updatedUser);
+      await FirebaseService.updateUser(updatedUser);
+      StorageService.setCurrentUser(updatedUser);
       onUpdateProfile(updatedUser);
       setShowPrivacy(false);
     } catch (err) {
@@ -213,7 +215,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setCopiedUsername(false), 2000);
   };
 
-  const displayAvatar = avatarFile ? avatar : sanitizeAvatarUrl(user.avatar, currentUsername);
+  const displayAvatar = getRealAvatar(avatarFile ? avatar : user.avatar, currentUsername);
   
   const renderMaritalStatus = (status?: string) => {
     switch (status) {
@@ -472,24 +474,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <p className="text-sm font-bold text-[#111111] mb-4">ជ្រើសរើសព័ត៌មានដែលអ្នកចង់បង្ហាញនៅលើ Profile របស់អ្នកដល់អ្នកដទៃ។</p>
             
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden divide-y divide-gray-100">
-              
-              <div className="flex items-center justify-between p-4">
-                <div>
-                  <h4 className="font-bold text-black text-sm">បង្ហាញលេខទូរស័ព្ទ</h4>
-                </div>
-                <button onClick={() => setShowPhone(!showPhone)} className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${showPhone ? 'bg-[#6C63FF]' : 'bg-gray-200'}`}>
-                  <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${showPhone ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                </button>
-              </div>
-              <div className="flex items-center justify-between p-4">
-                <div>
-                  <h4 className="font-bold text-black text-sm">បង្ហាញអ៊ីមែល</h4>
-                </div>
-                <button onClick={() => setShowEmail(!showEmail)} className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${showEmail ? 'bg-[#6C63FF]' : 'bg-gray-200'}`}>
-                  <div className={`w-4 h-4 rounded-full bg-white transform transition-transform ${showEmail ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                </button>
-              </div>
-
               <div className="flex items-center justify-between p-4">
                 <div>
                   <h4 className="font-bold text-black text-sm">បង្ហាញចំណងចំណូលចិត្ត</h4>
@@ -582,3 +566,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     </div>
   );
 };
+"""
+
+with open("src/views/ProfileView.tsx", "w") as f:
+    f.write(content)

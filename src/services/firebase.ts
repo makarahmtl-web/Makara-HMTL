@@ -1,6 +1,8 @@
 import { initializeApp, getApps } from "firebase/app";
 import {
   getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
   doc,
   getDoc,
   setDoc,
@@ -39,10 +41,13 @@ import {
 } from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
 import { User, Contact, FriendRequest, FriendRequestStatus, Story, Post, PostComment } from "../types";
+import { getRealAvatar, sanitizeAvatarUrl } from "../utils/avatars";
 
 // Initialize Firebase App singleton
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+}, firebaseConfig.firestoreDatabaseId || undefined);
 export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
 
 // Enable offline persistence gracefully if supported
@@ -120,19 +125,172 @@ export const FirebaseService = {
 
       // 4. Save User document in users collection
       const userDocRef = doc(db, "users", user.id);
-      await setDoc(userDocRef, {
+      const profileData = {
         ...user,
         username: cleanUsername,
         displayName: user.name,
         phoneNumber: user.phone,
+        country: "Cambodia",
+        countryCode: "KH",
+        isOnline: true,
         updatedAt: serverTimestamp(),
-      }, { merge: true });
+      };
+      await setDoc(userDocRef, profileData, { merge: true });
+
+      // 5. Save in profiles collection as well
+      const profileDocRef = doc(db, "profiles", user.id);
+      await setDoc(profileDocRef, profileData, { merge: true }).catch(() => {});
 
       return { success: true };
     } catch (err: any) {
       console.error("Firestore saveUserProfile error:", err);
       return { success: true }; // Allow graceful local operation if offline
     }
+  },
+
+  /**
+   * Fetch registered users in Cambodia from Firestore `profiles` / `users` collections
+   * for automatic suggested friends discovery (excluding current logged-in user).
+   */
+  async getSuggestedUsers(currentUserId: string, limitCount = 30): Promise<Contact[]> {
+    const resultsMap = new Map<string, Contact>();
+
+    // Initial Cambodian community seed suggestions with high-quality real portraits
+    const cambodiaCommunitySeed: Contact[] = [
+      {
+        id: "seed_sokha_kh",
+        name: "សុខា ភិរុណ",
+        username: "sokha_kh",
+        phone: "+855 12 889 900",
+        email: "sokha.kh@hugi.app",
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80",
+        bio: "📍 ភ្នំពេញ | Developer & Tech Enthusiast 🇰🇭",
+        isOnline: true,
+      },
+      {
+        id: "seed_chanthida_sr",
+        name: "ចាន់ ធីតា",
+        username: "thida_sr",
+        phone: "+855 92 334 455",
+        email: "thida.sr@hugi.app",
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+        bio: "📍 សៀមរាប | រីករាយនឹងការរាប់អានមិត្តថ្មីៗ ✨",
+        isOnline: true,
+      },
+      {
+        id: "seed_vanna_ritth",
+        name: "វណ្ណា រិទ្ធ",
+        username: "vanna_ritth",
+        phone: "+855 88 776 655",
+        email: "vanna.ritth@hugi.app",
+        avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
+        bio: "📍 បាត់ដំបង | ស្រលាញ់តន្ត្រី និងការធ្វើដំណើរកម្សាន្ត 🎵",
+        isOnline: true,
+      },
+      {
+        id: "seed_sophea_kalyan",
+        name: "សុភ័ក្រ កល្យាណ",
+        username: "kalyan_pp",
+        phone: "+855 70 123 999",
+        email: "kalyan.pp@hugi.app",
+        avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80",
+        bio: "📍 រាជធានីភ្នំពេញ | ស្វាគមន៍មកកាន់ Hugi Chat 🇰🇭",
+        isOnline: true,
+      },
+      {
+        id: "seed_makara_design",
+        name: "រតនា វិចិត្រ",
+        username: "vichet_art",
+        phone: "+855 93 456 789",
+        email: "vichet.art@hugi.app",
+        avatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&auto=format&fit=crop&q=80",
+        bio: "📍 កំពត | UI Designer & Coffee Lover ☕",
+        isOnline: true,
+      },
+    ];
+
+    try {
+      // 1. Fetch from `profiles` collection
+      const qProfiles = query(collection(db, "profiles"), limit(limitCount));
+      const snapProfiles = await getDocs(qProfiles).catch(() => null);
+      if (snapProfiles && !snapProfiles.empty) {
+        snapProfiles.forEach((d) => {
+          const data = d.data();
+          const userId = d.id || data.id;
+          if (userId && userId !== currentUserId) {
+            resultsMap.set(userId, {
+              id: userId,
+              name: data.displayName || data.name || data.username || "Hugi User",
+              username: data.username || "",
+              phone: data.phoneNumber || data.phone || "+855 12 345 678",
+              email: data.email || "",
+              avatar: sanitizeAvatarUrl(data.avatar || data.photoURL, data.username || userId),
+              bio: data.bio || "📍 កម្ពុជា | សមាជិក Hugi 🇰🇭",
+              isOnline: data.isOnline !== false,
+            });
+          }
+        });
+      }
+
+      // 2. Fetch from `users` collection if profiles has few
+      if (resultsMap.size < 10) {
+        const qUsers = query(collection(db, "users"), limit(limitCount));
+        const snapUsers = await getDocs(qUsers).catch(() => null);
+        if (snapUsers && !snapUsers.empty) {
+          snapUsers.forEach((d) => {
+            const data = d.data();
+            const userId = d.id || data.id;
+            if (userId && userId !== currentUserId && !resultsMap.has(userId)) {
+              resultsMap.set(userId, {
+                id: userId,
+                name: data.displayName || data.name || data.username || "Hugi User",
+                username: data.username || "",
+                phone: data.phoneNumber || data.phone || "+855 12 345 678",
+                email: data.email || "",
+                avatar: sanitizeAvatarUrl(data.avatar || data.photoURL, data.username || userId),
+                bio: data.bio || "📍 កម្ពុជា | សមាជិក Hugi 🇰🇭",
+                isOnline: data.isOnline !== false,
+              });
+            }
+          });
+        }
+      }
+
+      // 3. Fetch from `usernames` collection for any other registered profiles
+      if (resultsMap.size < 10) {
+        const qUsernames = query(collection(db, "usernames"), limit(limitCount));
+        const snapUsernames = await getDocs(qUsernames).catch(() => null);
+        if (snapUsernames && !snapUsernames.empty) {
+          snapUsernames.forEach((d) => {
+            const data = d.data();
+            const userId = data.userId;
+            if (userId && userId !== currentUserId && !resultsMap.has(userId)) {
+              resultsMap.set(userId, {
+                id: userId,
+                name: data.name || data.displayName || data.username || "Hugi User",
+                username: data.username || "",
+                phone: data.phone || data.phoneNumber || "+855 12 345 678",
+                email: data.email || "",
+                avatar: sanitizeAvatarUrl(data.avatar || data.photoURL, data.username || userId),
+                bio: data.bio || "📍 កម្ពុជា | សមាជិក Hugi 🇰🇭",
+                isOnline: true,
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Firestore getSuggestedUsers fallback:", err);
+    }
+
+    // Merge with Cambodian community seed suggestions so new users always have suggested contacts
+    for (const seed of cambodiaCommunitySeed) {
+      if (seed.id !== currentUserId && !resultsMap.has(seed.id)) {
+        resultsMap.set(seed.id, seed);
+      }
+    }
+
+    return Array.from(resultsMap.values());
   },
 
   /**
@@ -351,6 +509,45 @@ export const FirebaseService = {
   /**
    * Start or retrieve a Firestore direct chat between current user and other user
    */
+  
+  listenToUserChats(userId: string, callback: (chats: any[]) => void): () => void {
+    try {
+      const q = query(collection(db, "chats"), where("participants", "array-contains", userId));
+      return onSnapshot(
+        q,
+        (snapshot) => {
+          const chatsList: any[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data({ serverTimestamps: "estimate" });
+            const otherParticipantDetail = data.participantDetails?.find((p: any) => p.id !== userId);
+            
+            chatsList.push({
+              id: docSnap.id,
+              participants: data.participantDetails || [],
+              isGroup: false,
+              name: otherParticipantDetail?.name || "Unknown",
+              avatar: otherParticipantDetail?.avatar || "",
+              lastMessage: data.lastMessage,
+              unreadCount: 0,
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : new Date().toISOString(),
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+            });
+          });
+
+          // Sort by updatedAt desc
+          chatsList.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+          callback(chatsList);
+        },
+        (err) => {
+          console.warn("listenToUserChats error:", err);
+        }
+      );
+    } catch (err) {
+      console.warn("listenToUserChats fallback:", err);
+      return () => {};
+    }
+  },
+
   async startChat(currentUser: User, otherUser: Contact | User): Promise<{ chatId: string; isNew: boolean }> {
     const currentUid = currentUser.id;
     const otherUserId = otherUser.id;
@@ -448,16 +645,29 @@ export const FirebaseService = {
   async uploadMedia(path: string, mediaData: string | File): Promise<string> {
     try {
       const storageRef = ref(storage, path);
-      if (typeof mediaData === "string") {
-        if (mediaData.startsWith("data:")) {
-          await uploadString(storageRef, mediaData, "data_url");
+      
+      const uploadTask = async () => {
+        if (typeof mediaData === "string") {
+          if (mediaData.startsWith("data:")) {
+            await uploadString(storageRef, mediaData, "data_url");
+            return await getDownloadURL(storageRef);
+          }
+          return mediaData;
+        } else {
+          await uploadBytes(storageRef, mediaData);
           return await getDownloadURL(storageRef);
         }
-        return mediaData;
-      } else {
-        await uploadBytes(storageRef, mediaData);
-        return await getDownloadURL(storageRef);
-      }
+      };
+
+      // 15 second timeout to prevent infinite hanging in restricted iframes
+      const result = await Promise.race([
+        uploadTask(),
+        new Promise<string>((_, reject) => 
+          setTimeout(() => reject(new Error("Storage upload timeout")), 15000)
+        )
+      ]);
+      
+      return result;
     } catch (err) {
       console.warn("Firebase Storage upload error, falling back to direct media data:", err);
       if (typeof mediaData === "string") return mediaData;
@@ -630,11 +840,11 @@ export const FirebaseService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+      return newPost;
     } catch (err) {
-      console.warn("Firestore createPost error fallback:", err);
+      console.error("Firestore createPost error:", err);
+      throw err; // Throw error to be caught by UI
     }
-
-    return newPost;
   },
 
   async deletePost(postId: string): Promise<void> {
@@ -706,13 +916,13 @@ export const FirebaseService = {
    */
   listenToPosts(callback: (posts: Post[]) => void): () => void {
     try {
-      const postsQuery = query(collection(db, "posts"));
+      const postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"));
       return onSnapshot(
         postsQuery,
         (snapshot) => {
           const postsList: Post[] = [];
           snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
+            const data = docSnap.data({ serverTimestamps: "estimate" });
             postsList.push({
               id: docSnap.id,
               userId: data.userId || "",

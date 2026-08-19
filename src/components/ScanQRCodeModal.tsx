@@ -316,11 +316,11 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-5 border border-gray-100 relative animate-in fade-in zoom-in-95 font-sans text-[#2D3436] overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-4 border border-gray-100 relative animate-in fade-in zoom-in-95 font-sans text-black overflow-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 text-gray-400 hover:text-gray-600 p-1.5 rounded-full bg-white/80 hover:bg-gray-100 transition-colors shadow-2xs"
+          className="absolute top-4 right-4 z-20 text-[#111111] font-bold hover:text-black font-bold p-1.5 rounded-full bg-white/80 hover:bg-gray-100 transition-colors shadow-2xs"
           aria-label="Close"
         >
           <X className="w-5 h-5" />
@@ -328,10 +328,10 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
 
         {/* Header */}
         <div className="text-center mb-3">
-          <h2 className="text-lg font-bold text-gray-800">
+          <h2 className="text-lg font-bold text-black">
             ស្កេន QR Code (Scan QR)
           </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs font-bold text-[#111111] font-bold mt-0.5">
             ស្កេន QR Code របស់មិត្តភក្តិដើម្បីបន្ថែម ឬជជែក
           </p>
         </div>
@@ -356,13 +356,13 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
               {/* Error overlay if camera blocked */}
               {cameraError && (
                 <div className="absolute inset-0 bg-gray-900/90 flex flex-col items-center justify-center p-4 text-center z-10 text-white">
-                  <Camera className="w-8 h-8 text-gray-400 mb-2" />
-                  <p className="text-xs text-gray-300 mb-3 leading-relaxed">
+                  <Camera className="w-8 h-8 text-[#111111] font-bold mb-2" />
+                  <p className="text-xs font-bold text-slate-400 mb-3 leading-relaxed">
                     {cameraError}
                   </p>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-[#6C63FF] hover:bg-[#5a51e6] text-white text-xs font-semibold px-4 py-2 rounded-xl flex items-center space-x-1.5"
+                    className="bg-[#6C63FF] hover:bg-[#5a51e6] text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center space-x-1.5"
                   >
                     <ImageIcon className="w-4 h-4" />
                     <span>ជ្រើសរើសរូបពី Gallery</span>
@@ -376,10 +376,10 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
                   {/* Outer dim mask */}
                   <div className="w-48 h-48 relative border-2 border-white/80 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
                     {/* Frame corners */}
-                    <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-[#6C63FF] rounded-tl-lg" />
-                    <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-[#6C63FF] rounded-tr-lg" />
-                    <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-[#6C63FF] rounded-bl-lg" />
-                    <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-[#6C63FF] rounded-br-lg" />
+                    <div className="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-[#6C63FF] rounded-tl-lg" />
+                    <div className="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-[#6C63FF] rounded-tr-lg" />
+                    <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-[#6C63FF] rounded-bl-lg" />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-[#6C63FF] rounded-br-lg" />
 
                     {/* Animated Scanning Laser Line */}
                     <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#6C63FF] to-transparent shadow-[0_0_8px_#6C63FF] animate-bounce-slow mt-8" />
@@ -414,7 +414,7 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-2.5 px-3 bg-[#F5F7FA] hover:bg-gray-100 text-[#2D3436] font-semibold rounded-xl text-xs flex items-center justify-center space-x-2 border border-gray-200 transition-colors shadow-2xs"
+                className="w-full py-2.5 px-3 bg-[#F5F7FA] hover:bg-gray-100 text-black font-bold rounded-xl text-xs flex items-center justify-center space-x-2 border border-gray-200 transition-colors shadow-2xs"
               >
                 <ImageIcon className="w-4 h-4 text-[#6C63FF]" />
                 <span>ជ្រើសរូបភាព QR Code ពី Gallery</span>
@@ -423,12 +423,12 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
 
             {/* Manual Search Form by @username */}
             <div className="pt-2 border-t border-gray-100">
-              <p className="text-[11px] text-gray-400 mb-1.5 font-medium">
+              <p className="text-[11px] text-[#111111] font-bold mb-1.5 font-bold">
                 ឬបញ្ចូល @username ដោយផ្ទាល់៖
               </p>
               <form onSubmit={handleManualSearch} className="flex space-x-1.5">
                 <div className="relative flex-1">
-                  <span className="absolute left-3 top-2.5 text-xs text-gray-400 font-semibold">
+                  <span className="absolute left-3 top-2.5 text-xs text-[#111111] font-bold">
                     @
                   </span>
                   <input
@@ -436,12 +436,12 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
                     value={manualInput}
                     onChange={(e) => setManualInput(e.target.value)}
                     placeholder="makara, sokha, dara..."
-                    className="w-full bg-[#F5F7FA] border border-gray-200 rounded-xl py-2 pl-7 pr-3 text-xs text-[#2D3436] focus:outline-none focus:border-[#6C63FF] focus:bg-white"
+                    className="w-full bg-[#F5F7FA] border border-gray-200 rounded-xl py-2 pl-7 pr-3 text-xs font-bold text-black focus:outline-none focus:border-[#6C63FF] focus:bg-white"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="bg-[#6C63FF] hover:bg-[#5a51e6] text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-2xs flex items-center space-x-1"
+                  className="bg-[#6C63FF] hover:bg-[#5a51e6] text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-2xs flex items-center space-x-1"
                 >
                   <Search className="w-3.5 h-3.5" />
                   <span>ស្វែងរក</span>
@@ -452,7 +452,7 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
         ) : (
           /* View 2: Scanned Result Card */
           <div className="animate-in fade-in zoom-in-95">
-            <div className="bg-[#F5F7FA] rounded-2xl p-5 border border-gray-200 text-center mb-4 relative">
+            <div className="bg-[#F5F7FA] rounded-2xl p-4 border border-gray-200 text-center mb-4 relative">
               {/* Avatar */}
               <div className="w-16 h-16 rounded-full bg-[#6C63FF]/10 text-[#6C63FF] font-bold text-xl flex items-center justify-center border-2 border-white shadow-2xs overflow-hidden mx-auto mb-2.5">
                 {scannedResult.avatar && !scannedResult.avatar.includes("unsplash") ? (
@@ -467,21 +467,21 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
               </div>
 
               {/* Name & Username */}
-              <h3 className="text-base font-bold text-gray-800">
+              <h3 className="text-base font-bold text-black">
                 {scannedResult.name}
               </h3>
-              <div className="text-xs text-[#6C63FF] font-semibold mb-2">
+              <div className="text-xs text-[#6C63FF] font-bold mb-2">
                 @{scannedResult.username}
               </div>
 
               {scannedResult.bio && (
-                <p className="text-xs text-gray-500 max-w-xs mx-auto mb-2 leading-relaxed">
+                <p className="text-xs font-bold text-black font-bold max-w-xs mx-auto mb-2 leading-relaxed">
                   {scannedResult.bio}
                 </p>
               )}
 
               {/* Status Pill */}
-              <div className="inline-flex items-center space-x-1 text-[11px] px-2.5 py-0.5 rounded-full font-medium mt-1">
+              <div className="inline-flex items-center space-x-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold mt-1">
                 {scannedResult.isSelf ? (
                   <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                     នេះជាគណនីរបស់អ្នកផ្ទាល់
@@ -523,9 +523,9 @@ export const ScanQRCodeModal: React.FC<ScanQRCodeModalProps> = ({
 
               <button
                 onClick={handleResetScan}
-                className="w-full bg-white hover:bg-gray-50 text-gray-600 font-semibold py-2.5 px-4 rounded-xl text-xs border border-gray-200 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors"
+                className="w-full bg-white hover:bg-gray-50 text-black font-bold py-2.5 px-4 rounded-xl text-xs border border-gray-200 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-gray-500" />
+                <RefreshCw className="w-3.5 h-3.5 text-black font-bold" />
                 <span>ស្កេនម្តងទៀត (Scan Again)</span>
               </button>
             </div>

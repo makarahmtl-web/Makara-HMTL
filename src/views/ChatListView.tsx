@@ -3,6 +3,7 @@ import { Plus, Search, MessageSquarePlus, AtSign, Check, CheckCheck } from "luci
 import { Chat, User, Contact, Story } from "../types";
 import { NewChatModal } from "../components/NewChatModal";
 import { formatKhmerRelativeTime } from "../utils/time";
+import { sanitizeAvatarUrl } from "../utils/avatars";
 
 interface ChatListViewProps {
   currentUser: User;
@@ -50,14 +51,14 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
   });
 
   return (
-    <div className="flex flex-col min-h-full pb-20 max-w-md mx-auto px-3 pt-3 font-sans text-[#2D3436]">
+    <div className="flex flex-col min-h-full pb-20 max-w-md mx-auto px-3 pt-3 font-sans text-black">
       {/* 1. Header (Compact: 18px Title, 34px Button) */}
       <div className="flex items-center justify-between mb-2.5">
         <div>
-          <h1 className="text-[18px] font-black text-gray-900 leading-tight tracking-tight">
+          <h1 className="text-[18px] font-bold text-black leading-tight tracking-tight">
             សារ (Chats)
           </h1>
-          <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+          <p className="text-[11px] text-black font-bold mt-0.5">
             ការជជែក និងទំនាក់ទំនងរបស់អ្នក
           </p>
         </div>
@@ -74,13 +75,13 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
       {/* 2. Search Input (Height: 38px, Font: 12px, Radius: 10px) */}
       <div className="mb-2.5">
         <div className="relative">
-          <Search className="w-[16px] h-[16px] text-gray-400 absolute left-3 top-2.5" />
+          <Search className="w-[16px] h-[16px] text-[#111111] font-bold absolute left-3 top-2.5" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ស្វែងរកតាមឈ្មោះ, @username ឬសារ..."
-            className="w-full h-[38px] bg-[#F5F7FA] border border-transparent focus:border-[#6C63FF]/30 rounded-xl py-2 pl-9 pr-3 text-[12px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#6C63FF]/20 transition-all text-[#2D3436] placeholder:text-gray-400"
+            className="w-full h-[38px] bg-[#F5F7FA] border border-transparent focus:border-[#6C63FF]/30 rounded-xl py-2 pl-9 pr-3 text-[12px] focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#6C63FF]/20 transition-all text-black placeholder:text-[#111111] font-bold"
           />
         </div>
       </div>
@@ -89,10 +90,10 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
       {stories.length > 0 && (
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1.5 px-0.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#111111]">
               Stories
             </span>
-            <span className="text-[10px] text-[#6C63FF] font-semibold">
+            <span className="text-[10px] text-[#6C63FF] font-bold">
               24 ម៉ោង
             </span>
           </div>
@@ -106,7 +107,7 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
               <div className="w-[55px] h-[55px] rounded-full bg-[#F5F7FA] border-2 border-dashed border-[#6C63FF]/40 flex items-center justify-center text-[#6C63FF] font-bold text-base group-hover:bg-[#6C63FF]/10 group-hover:border-[#6C63FF] transition-all">
                 <Plus className="w-5 h-5 stroke-[2.5]" />
               </div>
-              <span className="text-[11px] text-gray-600 font-medium mt-1 truncate max-w-[55px]">
+              <span className="text-[11px] text-black font-bold mt-1 truncate max-w-[55px]">
                 របស់ខ្ញុំ
               </span>
             </button>
@@ -120,15 +121,13 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
               >
                 <div className="w-[55px] h-[55px] rounded-full border-2 border-[#6C63FF] p-0.5 group-hover:scale-105 transition-transform shadow-2xs">
                   <img
-                    src={
-                      story.userAvatar ||
-                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${story.userName}`
-                    }
+                    src={sanitizeAvatarUrl(story.userAvatar, story.userName)}
                     alt={story.userName}
                     className="w-full h-full rounded-full object-cover"
+                    referrerPolicy="no-referrer"
                   />
                 </div>
-                <span className="text-[11px] text-gray-700 font-medium mt-1 truncate max-w-[55px]">
+                <span className="text-[11px] text-black font-bold mt-1 truncate max-w-[55px]">
                   {story.userName.split(" ")[0]}
                 </span>
               </button>
@@ -140,11 +139,11 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
       {/* 4. Chat List Section */}
       {chats.length === 0 || (filteredChats.length === 0 && searchQuery) ? (
         <div className="mt-1">
-          <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-2xs text-center flex flex-col items-center justify-center">
-            <h3 className="text-[13px] font-bold text-gray-800 mb-1">
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-2xs text-center flex flex-col items-center justify-center">
+            <h3 className="text-[13px] font-bold text-black mb-1">
               {searchQuery ? "រកមិនឃើញការសន្ទនា" : "មិនទាន់មានការសន្ទនា"}
             </h3>
-            <p className="text-[11px] text-gray-400 font-normal leading-relaxed max-w-xs mb-3">
+            <p className="text-[11px] text-[#111111] font-normal leading-relaxed max-w-xs mb-3">
               {searchQuery
                 ? `គ្មានលទ្ធផលសម្រាប់ "${searchQuery}" ទេ`
                 : "ចុចប៊ូតុង + ដើម្បីចាប់ផ្តើមជជែកជាមួយមិត្តភក្តិ។"}
@@ -185,12 +184,10 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
                 {/* Chat Avatar: 36px Compact */}
                 <div className="relative flex-shrink-0">
                   <img
-                    src={
-                      avatar ||
-                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`
-                    }
+                    src={sanitizeAvatarUrl(avatar, displayName)}
                     alt={displayName}
                     className="w-[36px] h-[36px] rounded-full object-cover border border-gray-100"
+                    referrerPolicy="no-referrer"
                   />
                   {isOnline && (
                     <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 border-2 border-white rounded-full"></span>
@@ -202,18 +199,18 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
                   <div className="flex items-center justify-between">
                     {/* Chat Name: 13px Compact */}
                     <div className="flex items-center space-x-1 truncate max-w-[200px]">
-                      <h4 className="text-[13px] font-bold text-gray-900 truncate group-hover:text-[#6C63FF] transition-colors leading-tight">
+                      <h4 className="text-[13px] font-bold text-black truncate group-hover:text-[#6C63FF] transition-colors leading-tight">
                         {displayName}
                       </h4>
                       {otherUser.username && (
-                        <span className="text-[10px] text-gray-400 font-medium hidden sm:inline truncate">
+                        <span className="text-[10px] text-[#111111] font-bold hidden sm:inline truncate">
                           @{otherUser.username}
                         </span>
                       )}
                     </div>
 
                     {/* Chat Time */}
-                    <span className="text-[10px] text-gray-400 font-medium flex-shrink-0 ml-1">
+                    <span className="text-[10px] text-[#111111] font-bold flex-shrink-0 ml-1">
                       {chat.lastMessage?.timestamp
                         ? formatKhmerRelativeTime(chat.lastMessage.timestamp)
                         : "ឥឡូវនេះ"}
@@ -224,11 +221,11 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
                     {/* Chat Message Preview */}
                     <p
                       className={`text-[11px] truncate max-w-[220px] ${
-                        isAI ? "text-[#6C63FF] font-medium" : "text-gray-500"
+                        isAI ? "text-[#6C63FF] font-bold" : "text-black font-bold"
                       }`}
                     >
                       {chat.isTyping ? (
-                        <span className="text-[#6C63FF] font-medium animate-pulse">
+                        <span className="text-[#6C63FF] font-bold animate-pulse">
                           កំពុងវាយ...
                         </span>
                       ) : (
