@@ -21,6 +21,7 @@ import {
 import { Contact, User, FriendRequest } from "../types";
 import { FirebaseService } from "../services/firebase";
 import { FriendRequestsBanner } from "../components/FriendRequestsBanner";
+import { shareUserInvite } from "../utils/share";
 
 interface ContactsViewProps {
   currentUser: User;
@@ -124,18 +125,9 @@ export const ContactsView: React.FC<ContactsViewProps> = ({
 
   const onlineCount = contacts.filter((c) => c.isOnline).length;
 
-  const handleShareInvite = () => {
-    const inviteUrl = window.location.origin + `?ref=@${currentUser.username || "makara"}`;
-    if (navigator.share) {
-      navigator
-        .share({
-          title: "ចូលរួមកម្មវិធី Hugi",
-          text: `ជជែកជាមួយខ្ញុំនៅលើ Hugi: @${currentUser.username || "makara"}!`,
-          url: inviteUrl,
-        })
-        .catch(() => {});
-    } else {
-      navigator.clipboard.writeText(inviteUrl);
+  const handleShareInvite = async () => {
+    const res = await shareUserInvite(currentUser);
+    if (res === "copied" || res === "shared") {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
     }

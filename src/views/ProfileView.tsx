@@ -27,7 +27,7 @@ import { User } from "../types";
 import { StorageService } from "../services/storage";
 import { FirebaseService } from "../services/firebase";
 import { HugiLogo } from "../components/HugiLogo";
-import { generateProfileQR } from "../services/qr.service";
+import { getCleanUserInviteLink, formatInviteMessage, shareUserInvite } from "../utils/share";
 
 interface ProfileViewProps {
   user: User;
@@ -195,36 +195,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
-  // Share QR Code
+  // Share QR Code & Profile Link
   async function shareQR(platform: string) {
-    const link = `https://hugi.app/@${currentUsername}`;
-    const message = `សួស្តី! នេះជា QR Code របស់ខ្ញុំនៅលើ Hugi។ សូមបន្ថែមខ្ញុំជាមិត្តភក្តិ! 😊\n\n${link}`;
+    const link = getCleanUserInviteLink(currentUsername);
+    const message = formatInviteMessage({ name, username: currentUsername });
     
     switch(platform) {
       case 'telegram':
         window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(message)}`);
         break;
       case 'whatsapp':
-        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`);
         break;
       case 'facebook':
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`);
         break;
       default:
-        // Use Web Share API
-        if (navigator.share) {
-          try {
-            await navigator.share({
-              title: 'Hugi Profile',
-              text: message,
-              url: link,
-            });
-          } catch {
-            copyLink();
-          }
-        } else {
-          copyLink();
-        }
+        await shareUserInvite({ name, username: currentUsername });
     }
   }
 
@@ -240,10 +227,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setTimeout(() => setDownloadSuccess(false), 2000);
   }
 
-  // Copy Link
+  // Copy Clean Link
   function copyLink() {
-    const link = `https://hugi.app/@${currentUsername}`;
-    navigator.clipboard.writeText(link);
+    const message = formatInviteMessage({ name, username: currentUsername });
+    navigator.clipboard.writeText(message);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   }
@@ -429,7 +416,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
           {/* Profile URL Link */}
           <p className="text-[11px] text-gray-500 font-mono mt-2 select-all">
-            {generateProfileQR(currentUsername)}
+            {getCleanUserInviteLink(currentUsername)}
           </p>
 
           {/* Social Share Buttons */}

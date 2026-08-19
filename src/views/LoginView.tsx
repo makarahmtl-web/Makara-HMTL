@@ -1,15 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { HugiLogo } from "../components/HugiLogo";
-import { Mail, Phone, Lock, User as UserIcon, ArrowRight, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import { Mail, Lock, User as UserIcon, ArrowRight, CheckCircle2, ShieldCheck, X, FileText, Shield } from "lucide-react";
 import { User } from "../types";
 import { DEFAULT_USER } from "../services/storage";
+import { auth, googleProvider } from "../services/firebase";
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 interface LoginViewProps {
   onLoginSuccess: (user: User) => void;
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
-  const [modalMode, setModalMode] = useState<"none" | "email" | "phone" | "google" | "forgot">("none");
+  const [modalMode, setModalMode] = useState<"none" | "email" | "google" | "forgot" | "privacy">("none");
   
   // Email Form State
   const [isRegistering, setIsRegistering] = useState(false);
@@ -25,48 +33,70 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [forgotMessage, setForgotMessage] = useState("");
   const [forgotError, setForgotError] = useState("");
 
-  // Phone OTP State
-  const [phone, setPhone] = useState("");
-  const [otpStep, setOtpStep] = useState<"input" | "verify">("input");
-  const [otpCode, setOtpCode] = useState(["", "", "", "", "", ""]);
-  const [timer, setTimer] = useState(60);
-  const [phoneError, setPhoneError] = useState("");
-
   // Loading indicator
   const [isLoading, setIsLoading] = useState(false);
 
-  // Quick Google Sign In
-  const handleGoogleSignIn = () => {
+  // Firebase Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const mappedUser: User = {
+          ...DEFAULT_USER,
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Hugi User",
+          email: firebaseUser.email || "",
+          phone: firebaseUser.phoneNumber || "",
+          avatar: firebaseUser.photoURL || DEFAULT_USER.avatar,
+        };
+        onLoginSuccess(mappedUser);
+      }
+    });
+    return () => unsubscribe();
+  }, [onLoginSuccess]);
+
+  // Google Authentication with Firebase
+  const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLoginSuccess({
+    setEmailError("");
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const firebaseUser = result.user;
+      const mappedUser: User = {
         ...DEFAULT_USER,
-        name: "Makara HMTL (Google)",
-        email: "makarahmtl@gmail.com",
-      });
-    }, 600);
+        id: firebaseUser.uid,
+        name: firebaseUser.displayName || "Google User",
+        email: firebaseUser.email || "",
+        avatar: firebaseUser.photoURL || DEFAULT_USER.avatar,
+      };
+      setIsLoading(false);
+      onLoginSuccess(mappedUser);
+    } catch (err: any) {
+      console.error("Firebase Google Auth error:", err);
+      setIsLoading(false);
+      setEmailError("❌ មិនអាចចូលគណនីជាមួយ Google បានទេ៖ " + (err.message || "បញ្ហាតភ្ជាប់"));
+    }
   };
 
-  // Forgot Password Submit
-  const handleForgotPasswordSubmit = (e: React.FormEvent) => {
+  // Forgot Password Submit with Firebase
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setForgotMessage("");
     setForgotError("");
 
-    setTimeout(() => {
-      setLoading(false);
-      if (!forgotEmail || !forgotEmail.includes("@")) {
-        setForgotError("❌ មិនមានគណនីជាមួយអ៊ីមែលនេះទេ ឬអ៊ីមែលមិនត្រឹមត្រូវ");
-      } else {
-        setForgotMessage("✅ យើងបានផ្ញើអ៊ីមែលសម្រាប់កំណត់ពាក្យសម្ងាត់ថ្មីរបស់អ្នកហើយ!");
-      }
-    }, 600);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail);
+      setForgotMessage("✅ យើងបានផ្ញើអ៊ីមែលសម្រាប់កំណត់ពាក្យសម្ងាត់ថ្មីរបស់អ្នកហើយ!");
+    } catch (err: any) {
+      console.error("Firebase reset password error:", err);
+      setForgotError("❌ " + (err.code === "auth/user-not-found" ? "រកមិនឃើញគណនីដែលមានអ៊ីមែលនេះទេ" : "សូមបញ្ចូលអ៊ីមែលឲ្យបានត្រឹមត្រូវ"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Email Submit with exact validation rules
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  // Email Submit with Firebase Auth (Sign Up or Sign In)
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError("");
 
@@ -98,67 +128,38 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      let resUser;
+      if (isRegistering) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        resUser = cred.user;
+      } else {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        resUser = cred.user;
+      }
+
       const user: User = {
         ...DEFAULT_USER,
-        id: "user_" + Date.now(),
-        name: name || (isRegistering ? "អ្នកប្រើប្រាស់ថ្មី" : "Makara HMTL"),
+        id: resUser.uid,
+        name: name || resUser.displayName || (isRegistering ? "អ្នកប្រើប្រាស់ថ្មី" : "Hugi User"),
         username: username || "user_" + Math.floor(Math.random() * 1000),
         email: email,
       };
-      onLoginSuccess(user);
-    }, 700);
-  };
-
-  // Send Phone OTP
-  const handleSendOTP = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPhone = phone.trim();
-    if (!cleanPhone || cleanPhone.length < 8) {
-      setPhoneError("សូមបញ្ចូលលេខទូរស័ព្ទត្រឹមត្រូវ (ឧទាហរណ៍ 012 345 678)");
-      return;
-    }
-    setIsLoading(true);
-    setTimeout(() => {
       setIsLoading(false);
-      setOtpStep("verify");
-      setTimer(60);
-    }, 600);
-  };
-
-  // Verify Phone OTP
-  const handleVerifyOTP = () => {
-    const code = otpCode.join("");
-    if (code.length < 6) {
-      setPhoneError("សូមបញ្ចូលលេខកូដ OTP ទាំង ៦ ខ្ទង់");
-      return;
-    }
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      const formattedPhone = phone.startsWith("+855") ? phone : `+855 ${phone.replace(/^0/, "")}`;
-      const user: User = {
-        ...DEFAULT_USER,
-        id: "user_phone_" + Date.now(),
-        name: "Hugi Member (" + phone.slice(-4) + ")",
-        phone: formattedPhone,
-        email: `phone_${phone.replace(/\D/g, "")}@hugi.app`,
-      };
       onLoginSuccess(user);
-    }, 800);
-  };
-
-  const handleOtpChange = (index: number, val: string) => {
-    if (val.length > 1) val = val.slice(-1);
-    const newArr = [...otpCode];
-    newArr[index] = val;
-    setOtpCode(newArr);
-
-    // Auto focus next input
-    if (val && index < 5) {
-      const nextInput = document.getElementById(`otp-input-${index + 1}`);
-      if (nextInput) nextInput.focus();
+    } catch (err: any) {
+      console.error("Firebase Email Auth error:", err);
+      setIsLoading(false);
+      if (err.code === "auth/email-already-in-use") {
+        setEmailError("❌ អ៊ីមែលនេះត្រូវបានប្រើប្រាស់រួចហើយ");
+      } else if (err.code === "auth/wrong-password") {
+        setEmailError("❌ ពាក្យសម្ងាត់មិនត្រឹមត្រូវទេ");
+      } else if (err.code === "auth/user-not-found") {
+        setEmailError("❌ រកមិនឃើញគណនីដែលមានអ៊ីមែលនេះទេ");
+      } else {
+        setEmailError("❌ " + (err.message || "មានបញ្ហាកើតឡើង សូមព្យាយាមម្តងទៀត"));
+      }
     }
   };
 
@@ -225,35 +226,28 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <Mail className="w-4.5 h-4.5 text-gray-500" />
           <span className="text-sm">បន្តជាមួយអ៊ីមែល</span>
         </button>
-
-        {/* Phone OTP Sign In Button */}
-        <button
-          onClick={() => {
-            setPhoneError("");
-            setOtpStep("input");
-            setModalMode("phone");
-          }}
-          className="w-full bg-white hover:bg-gray-50 active:scale-[0.98] text-[#2D3436] font-medium py-3 px-4 rounded-xl border border-gray-200 shadow-2xs flex items-center justify-center space-x-3 transition-all duration-200"
-        >
-          <Phone className="w-4.5 h-4.5 text-gray-500" />
-          <span className="text-sm">បន្តជាមួយលេខទូរស័ព្ទ (OTP)</span>
-        </button>
-
-        {/* Quick Demo Login Option */}
-        <div className="pt-2 text-center">
-          <button
-            onClick={() => onLoginSuccess(DEFAULT_USER)}
-            className="text-xs text-[#6C63FF] hover:underline font-semibold tracking-wide py-1 px-3 rounded-lg hover:bg-[#6C63FF]/5 transition-colors"
-          >
-            ចូលប្រើរហ័សជា Makara HMTL (Demo) →
-          </button>
-        </div>
       </div>
 
-      {/* Footer Terms Note */}
+      {/* Footer Terms & Privacy Note */}
       <div className="w-full text-center pb-6 z-10 px-4">
         <p className="text-xs text-gray-400 font-normal leading-relaxed">
-          ដោយបន្ត អ្នកយល់ព្រមនឹងលក្ខខណ្ឌប្រើប្រាស់របស់ Hugi
+          ដោយបន្ត អ្នកយល់ព្រមនឹង{" "}
+          <button
+            type="button"
+            onClick={() => setModalMode("privacy")}
+            className="text-[#6C63FF] hover:underline font-semibold focus:outline-none transition-colors"
+          >
+            លក្ខខណ្ឌប្រើប្រាស់
+          </button>{" "}
+          និង{" "}
+          <button
+            type="button"
+            onClick={() => setModalMode("privacy")}
+            className="text-[#6C63FF] hover:underline font-semibold focus:outline-none transition-colors"
+          >
+            គោលការណ៍ឯកជនភាព
+          </button>{" "}
+          របស់ Hugi
         </p>
       </div>
 
@@ -420,124 +414,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         </div>
       )}
 
-      {/* Phone OTP Modal */}
-      {modalMode === "phone" && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 border border-gray-100 relative animate-in fade-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setModalMode("none")}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <Phone className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-gray-800">
-                  {otpStep === "input" ? "ចូលជាមួយលេខទូរស័ព្ទ" : "ផ្ទៀងផ្ទាត់ OTP"}
-                </h3>
-                <p className="text-xs text-gray-400">
-                  {otpStep === "input"
-                    ? "យើងនឹងផ្ញើលេខកូដ ៦ ខ្ទង់តាម SMS"
-                    : `កូដផ្ញើទៅកាន់ ${phone}`}
-                </p>
-              </div>
-            </div>
-
-            {phoneError && (
-              <div className="mb-3 p-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-medium border border-red-100">
-                {phoneError}
-              </div>
-            )}
-
-            {otpStep === "input" ? (
-              <form onSubmit={handleSendOTP} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    លេខទូរស័ព្ទកម្ពុជា (+855)
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-gray-700 flex items-center space-x-1.5">
-                      <span>🇰🇭</span>
-                      <span>+855</span>
-                    </div>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="12 345 678"
-                      className="flex-1 bg-[#F5F7FA] border border-gray-200 rounded-xl py-2.5 px-3.5 text-xs font-medium text-[#2D3436] focus:outline-none focus:border-[#6C63FF] focus:bg-white"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-[#6C63FF] hover:bg-[#5a51e6] text-white font-semibold py-2.5 rounded-xl shadow-xs text-xs transition-colors flex items-center justify-center space-x-2"
-                >
-                  <span>ផ្ញើលេខកូដ OTP</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                {/* 6 Digit Input boxes */}
-                <div className="flex justify-between gap-1.5">
-                  {otpCode.map((digit, index) => (
-                    <input
-                      key={index}
-                      id={`otp-input-${index}`}
-                      type="text"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(index, e.target.value)}
-                      className="w-10 h-11 text-center text-lg font-bold bg-[#F5F7FA] border border-gray-200 rounded-xl focus:outline-none focus:border-[#6C63FF] focus:bg-white focus:ring-2 focus:ring-[#6C63FF]/20 text-[#2D3436]"
-                    />
-                  ))}
-                </div>
-
-                <div className="text-center text-xs text-gray-400">
-                  {timer > 0 ? (
-                    <span>ផ្ញើកូដឡើងវិញក្នុងរយៈពេល {timer}s</span>
-                  ) : (
-                    <button
-                      onClick={() => setTimer(60)}
-                      className="text-[#6C63FF] font-semibold hover:underline"
-                    >
-                      ផ្ញើលេខកូដម្ដងទៀត
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleVerifyOTP}
-                  disabled={isLoading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl shadow-xs text-xs transition-colors flex items-center justify-center space-x-2"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>ផ្ទៀងផ្ទាត់ និងចូល</span>
-                </button>
-
-                <div className="text-center">
-                  <button
-                    onClick={() => setOtpStep("input")}
-                    className="text-xs text-gray-500 hover:underline"
-                  >
-                    ប្តូរលេខទូរស័ព្ទ
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Forgot Password Modal */}
       {modalMode === "forgot" && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
@@ -595,6 +471,182 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy Modal */}
+      {modalMode === "privacy" && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full max-h-[85vh] flex flex-col border border-gray-100 relative overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#6C63FF]/10 text-[#6C63FF] flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-gray-900 leading-tight">
+                    គោលការណ៍ឯកជនភាព Hugi
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium">
+                    (Hugi Privacy Policy - សីហា ២០២៦)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalMode("none")}
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                title="បិទ"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Content */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs text-gray-600 leading-relaxed">
+              <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100 text-gray-700">
+                <p className="font-medium text-xs text-gray-800">
+                  គោលការណ៍ឯកជនភាព Hugi (Hugi Privacy Policy)<br />
+                  <span className="text-gray-500 font-normal">(បច្ចុប្បន្នភាពចុងក្រោយ៖ ខែសីហា ឆ្នាំ២០២៦)</span>
+                </p>
+              </div>
+
+              {/* 1. Introduction */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ១. សេចក្តីផ្តើម (Introduction)
+                </h4>
+                <p className="text-gray-600">
+                  Hugi ផ្តល់តម្លៃខ្ពស់បំផុតដល់សិទ្ធិឯកជនភាពរបស់អ្នក។ គោលការណ៍នេះពិពណ៌នាអំពីព័ត៌មានដែលយើងប្រមូល របៀបប្រើប្រាស់ និងវិធានការការពារព័ត៌មានផ្ទាល់ខ្លួនរបស់អ្នក។
+                </p>
+              </div>
+
+              {/* 2. Data Collection */}
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ២. ព័ត៌មានដែលយើងប្រមូល (Data Collection)
+                </h4>
+                <ul className="space-y-1.5 list-disc list-inside text-gray-600">
+                  <li>
+                    <strong className="text-gray-800">ព័ត៌មានគណនី (Account Data)៖</strong> ឈ្មោះ, អ៊ីមែល ឬលេខទូរស័ព្ទ, និងរូបថតប្រវត្តិរូប (Avatar)។
+                  </li>
+                  <li>
+                    <strong className="text-gray-800">ខ្លឹមសាររបស់អ្នក (User Content)៖</strong> រាល់អត្ថបទ រូបភាព ឬទិន្នន័យ Story។
+                  </li>
+                  <li>
+                    <strong className="text-gray-800">ទិន្នន័យ Hugi AI (AI Interaction Data)៖</strong> សារ និងសំណួរដែលអ្នកបានវាយផ្ញើដោយផ្ទាល់ទៅកាន់ Hugi AI ត្រូវបានដំណើរការដើម្បីបង្កើតចម្លើយជូនអ្នកភ្លាមៗ និងមិនត្រូវបានបង្ហាញជាសាធារណៈឡើយ។
+                  </li>
+                  <li>
+                    <strong className="text-gray-800">ទិន្នន័យបច្ចេកទេស (Technical Data)៖</strong> ប្រភេទទូរស័ព្ទ/ឧបករណ៍, ប្រព័ន្ធប្រតិបត្តិការ (OS), លេខ IP address, និង App crash logs។
+                  </li>
+                </ul>
+              </div>
+
+              {/* 3. Account, Chat & AI Privacy */}
+              <div className="space-y-2 bg-[#6C63FF]/5 p-3.5 rounded-2xl border border-[#6C63FF]/20">
+                <h4 className="font-bold text-[#6C63FF] text-xs flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#6C63FF] shrink-0" />
+                  ៣. ឯកជនភាពនៃគណនី សារឆាត និងប្រព័ន្ធ AI (Account, Chat & AI Privacy)
+                </h4>
+                <ul className="space-y-2 text-gray-700 text-xs">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-gray-900">ភាពជាឯកជនជាចម្បង (Strictly Private)៖</strong> រាល់ខ្លឹមសារ និងព័ត៌មានក្នុងគណនីរបស់អ្នកត្រូវបានរក្សាជាឯកជនភាពដាច់ខាត។
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-gray-900">ការបំបែកប្រព័ន្ធ AI ពីសារឆាតផ្ទាល់ខ្លួន (AI & Chat Isolation)៖</strong> Hugi AI ដំណើរការដាច់ដោយឡែកពីប្រព័ន្ធសារឆ្លើយឆ្លងរវាងមនុស្ស និងមនុស្ស (1-on-1 Chats)។ AI ដាច់ខាតមិនអាចមើលឃើញ អាន ឬប្រមូលព័ត៌មានពីសារឆាតផ្ទាល់ខ្លួន បញ្ជីទំនាក់ទំនង (Contacts) ឬការផុសរបស់អ្នកឡើយ។
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <span>
+                      <strong className="text-gray-900">គ្មានការបង្ហាញសាធារណៈ (No Unauthorized Public Display)៖</strong> យើងដាច់ខាតមិនបង្ហាញ ឬចែករំលែកទិន្នន័យរបស់អ្នកឡើយ។
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* 4. How We Use Data */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៤. របៀបដែលយើងប្រើប្រាស់ព័ត៌មាន (How We Use Data)
+                </h4>
+                <p className="text-gray-600">
+                  គ្រប់គ្រងគណនី, រក្សាទុកទិន្នន័យមានសុវត្ថិភាព, កែលម្អប្រព័ន្ធ, និងផ្ញើការជូនដំណឹងសំខាន់ៗ។
+                </p>
+              </div>
+
+              {/* 5. Data Security & Retention */}
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៥. ការរក្សាទុក និងសុវត្ថិភាពទិន្នន័យ (Data Security & Retention)
+                </h4>
+                <ul className="space-y-1 list-disc list-inside text-gray-600">
+                  <li>
+                    <strong className="text-gray-800">សុវត្ថិភាពទិន្នន័យ៖</strong> ប្រើប្រាស់សេវាកម្ម Google Firebase ដែលមានបច្ចេកវិទ្យាកូដនីយកម្មស្តង់ដារ (SSL/TLS Encryption)។
+                  </li>
+                  <li>
+                    <strong className="text-gray-800">ការលុបទិន្នន័យ៖</strong> ប្រសិនបើអ្នកលុបគណនី ទិន្នន័យទាំងអស់នឹងត្រូវលុបចេញពី Server។
+                  </li>
+                </ul>
+              </div>
+
+              {/* 6. Data Sharing */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៦. ការចែករំលែកទិន្នន័យ (Data Sharing)
+                </h4>
+                <p className="text-gray-600">
+                  មិនលក់ទិន្នន័យ (No Selling) ទៅឱ្យភាគីទីបីឡើយ។
+                </p>
+              </div>
+
+              {/* 7. User Rights */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៧. សិទ្ធិរបស់អ្នក (User Rights)
+                </h4>
+                <p className="text-gray-600">
+                  អ្នកមានសិទ្ធិកែប្រែ ឬស្នើសុំលុបទិន្នន័យគណនីចោលទាំងស្រុងបានគ្រប់ពេល។
+                </p>
+              </div>
+
+              {/* 8. Children's Privacy */}
+              <div className="space-y-1">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៨. ឯកជនភាពកុមារ (Children's Privacy)
+                </h4>
+                <p className="text-gray-600">
+                  Hugi មិនត្រូវបានបង្កើតឡើងសម្រាប់កុមារដែលមានអាយុក្រោម ១៣ ឆ្នាំឡើយ។
+                </p>
+              </div>
+
+              {/* 9. Contact Us */}
+              <div className="space-y-1 pt-1 border-t border-gray-100">
+                <h4 className="font-bold text-gray-900 text-xs">
+                  ៩. ការទំនាក់ទំនង (Contact Us)
+                </h4>
+                <p className="text-gray-600">
+                  Email: <a href="mailto:support@hugi.com" className="text-[#6C63FF] hover:underline font-semibold">support@hugi.com</a>
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setModalMode("none")}
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#6C63FF] hover:bg-[#5a51e6] active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center"
+              >
+                បិទ
+              </button>
+            </div>
           </div>
         </div>
       )}

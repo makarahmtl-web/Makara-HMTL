@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { User, Chat, Story, Contact, FriendRequest } from "./types";
 import { StorageService, DEFAULT_USER } from "./services/storage";
-import { FirebaseService } from "./services/firebase";
+import { FirebaseService, auth, db } from "./services/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { TopHeader } from "./components/TopHeader";
 import { BottomNav, NavTab } from "./components/BottomNav";
 import { LoginView } from "./views/LoginView";
@@ -29,22 +31,133 @@ export default function App() {
   const [showScanQRModal, setShowScanQRModal] = useState(false);
   const [showFloatingAIChat, setShowFloatingAIChat] = useState(false);
 
-  // Load Initial Data from storage
+  // Load Initial Data and Auth listeners
   useEffect(() => {
-    const user = StorageService.getUser();
-    setCurrentUser(user);
+    // 1. Listen to Firebase auth state changes for dynamic profile sync
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: any) => {
+      if (firebaseUser) {
+        // Authenticated. Check or auto-create profile document in Firestore
+        let localUser = StorageService.getUser();
+        
+        try {
+          const userDocRef = doc(db, "users", firebaseUser.uid);
+          const docSnap = await getDoc(userDocRef);
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            localUser = {
+              id: firebaseUser.uid,
+              name: data.displayName || data.name || firebaseUser.displayName || "អ្នកប្រើប្រាស់ Hugi",
+              username: data.username || "user_" + firebaseUser.uid.slice(0, 5),
+              email: data.email || firebaseUser.email || "",
+              phone: data.phoneNumber || data.phone || firebaseUser.phoneNumber || "",
+              avatar: data.avatar || firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              bio: data.bio || "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
+              isOnline: true,
+              showOnlineStatus: data.showOnlineStatus !== false,
+              showPhone: data.showPhone !== false,
+              soundEnabled: data.soundEnabled !== false,
+              findableByUsername: data.findableByUsername || "everyone",
+              showPublicQR: data.showPublicQR !== false,
+              createdAt: data.createdAt || new Date().toISOString(),
+            };
+          } else {
+            // Document doesn't exist, auto create it
+            const generatedUsername = "user_" + Math.floor(10000 + Math.random() * 90000);
+            localUser = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || "អ្នកប្រើប្រាស់ Hugi",
+              username: generatedUsername,
+              email: firebaseUser.email || "",
+              phone: firebaseUser.phoneNumber || "",
+              avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
+              isOnline: true,
+              showOnlineStatus: true,
+              showPhone: true,
+              soundEnabled: true,
+              findableByUsername: "everyone",
+              showPublicQR: true,
+              createdAt: new Date().toISOString(),
+            };
+            
+            // Set document in Firestore
+            await setDoc(userDocRef, {
+              id: firebaseUser.uid,
+              name: localUser.name,
+              displayName: localUser.name,
+              username: localUser.username,
+              email: localUser.email,
+              phone: localUser.phone,
+              phoneNumber: localUser.phone,
+              avatar: localUser.avatar,
+              bio: localUser.bio,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
 
+            // Set username mapping
+            const usernameRef = doc(db, "usernames", localUser.username);
+            await setDoc(usernameRef, {
+              userId: firebaseUser.uid,
+              username: localUser.username,
+              name: localUser.name,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
+        } catch (err) {
+          console.warn("Firestore user sync error, using local fallback:", err);
+          if (!localUser) {
+            localUser = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || "អ្នកប្រើប្រាស់ Hugi",
+              username: "user_" + firebaseUser.uid.slice(0, 5),
+              email: firebaseUser.email || "",
+              phone: firebaseUser.phoneNumber || "",
+              avatar: firebaseUser.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firebaseUser.uid}`,
+              bio: "សួស្តី! ខ្ញុំប្រើប្រាស់ Hugi Chat ✨",
+              isOnline: true,
+              showOnlineStatus: true,
+              showPhone: true,
+              soundEnabled: true,
+              findableByUsername: "everyone",
+              showPublicQR: true,
+              createdAt: new Date().toISOString(),
+            };
+          }
+        }
+
+        StorageService.saveUser(localUser);
+        setCurrentUser(localUser);
+      } else {
+        // Logged out
+        setCurrentUser(null);
+      }
+    });
+
+    // 2. Load cached states
     const loadedChats = StorageService.getChats();
     setChats(loadedChats);
 
     const loadedStories = StorageService.getStories();
     setStories(loadedStories);
 
+    // 3. Real-time stories listener from Firestore
+    const unsubStories = FirebaseService.listenToStories((storiesList) => {
+      setStories(storiesList);
+      StorageService.saveStories(storiesList);
+    });
+
     const loadedContacts = StorageService.getContacts();
     setContacts(loadedContacts);
 
     const loadedRequests = StorageService.getFriendRequests();
     setFriendRequests(loadedRequests);
+
+    return () => {
+      unsubscribe();
+      unsubStories();
+    };
   }, []);
 
   // Login handler
@@ -54,7 +167,14 @@ export default function App() {
   };
 
   // Logout handler
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { signOut: firebaseSignOut } = await import("firebase/auth");
+      const { auth } = await import("./services/firebase");
+      await firebaseSignOut(auth);
+    } catch (err) {
+      console.warn("Firebase signout warning:", err);
+    }
     StorageService.saveUser(null);
     setCurrentUser(null);
     setActiveChat(null);
@@ -62,7 +182,14 @@ export default function App() {
   };
 
   // Delete account
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
+    try {
+      const { signOut: firebaseSignOut } = await import("firebase/auth");
+      const { auth } = await import("./services/firebase");
+      await firebaseSignOut(auth);
+    } catch (err) {
+      console.warn("Firebase signout during delete account warning:", err);
+    }
     StorageService.clearAll();
     setCurrentUser(null);
     setActiveChat(null);

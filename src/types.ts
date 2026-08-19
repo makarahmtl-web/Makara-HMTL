@@ -56,16 +56,42 @@ export interface Story {
   id: string;
   userId: string;
   userName: string;
+  userUsername?: string;
   userAvatar?: string;
   type: "image" | "text";
   imageUrl?: string;
   text?: string;
   bgColor?: string;
   textColor?: string;
-  createdAt: string;
-  expiresAt: string;
+  createdAt: string | any;
+  expiresAt?: string;
   likes: string[];
   viewedBy: string[];
+}
+
+export interface PostComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userUsername?: string;
+  userAvatar?: string;
+  text: string;
+  createdAt: string | any;
+}
+
+export interface Post {
+  id: string;
+  userId: string;
+  userName: string;
+  userUsername?: string;
+  userAvatar?: string;
+  text: string;
+  imageUrl?: string;
+  likes: string[];
+  commentsCount: number;
+  comments?: PostComment[];
+  createdAt: string | any;
+  updatedAt?: string | any;
 }
 
 export interface Contact {

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Plus, Search, MessageSquarePlus, AtSign, Check, CheckCheck } from "lucide-react";
 import { Chat, User, Contact, Story } from "../types";
 import { NewChatModal } from "../components/NewChatModal";
+import { formatKhmerRelativeTime } from "../utils/time";
 
 interface ChatListViewProps {
   currentUser: User;
@@ -84,83 +85,59 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Stories Section (Story Ring: 55px Compact, Username: 11px, Gap: 8px) */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-1.5 px-0.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Stories
-          </span>
-          <span className="text-[10px] text-[#6C63FF] font-semibold">
-            24 ម៉ោង
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {/* Add Story Button (Ring: 55px) */}
-          <button
-            onClick={onAddStoryClick}
-            className="flex flex-col items-center flex-shrink-0 group"
-          >
-            <div className="w-[55px] h-[55px] rounded-full bg-[#F5F7FA] border-2 border-dashed border-[#6C63FF]/40 flex items-center justify-center text-[#6C63FF] font-bold text-base group-hover:bg-[#6C63FF]/10 group-hover:border-[#6C63FF] transition-all">
-              <Plus className="w-5 h-5 stroke-[2.5]" />
-            </div>
-            <span className="text-[11px] text-gray-600 font-medium mt-1 truncate max-w-[55px]">
-              របស់ខ្ញុំ
+      {/* 3. Stories Quick Row */}
+      {stories.length > 0 && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              Stories
             </span>
-          </button>
+            <span className="text-[10px] text-[#6C63FF] font-semibold">
+              24 ម៉ោង
+            </span>
+          </div>
 
-          {/* Existing Stories Circles (Story Ring: 55px, Story Username: 11px) */}
-          {stories.map((story, idx) => (
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {/* Add Story Button (Ring: 55px) */}
             <button
-              key={story.id}
-              onClick={() => onOpenStory && onOpenStory(idx)}
+              onClick={onAddStoryClick}
               className="flex flex-col items-center flex-shrink-0 group"
             >
-              <div className="w-[55px] h-[55px] rounded-full border-2 border-[#6C63FF] p-0.5 group-hover:scale-105 transition-transform shadow-2xs">
-                <img
-                  src={
-                    story.userAvatar ||
-                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${story.userName}`
-                  }
-                  alt={story.userName}
-                  className="w-full h-full rounded-full object-cover"
-                />
+              <div className="w-[55px] h-[55px] rounded-full bg-[#F5F7FA] border-2 border-dashed border-[#6C63FF]/40 flex items-center justify-center text-[#6C63FF] font-bold text-base group-hover:bg-[#6C63FF]/10 group-hover:border-[#6C63FF] transition-all">
+                <Plus className="w-5 h-5 stroke-[2.5]" />
               </div>
-              <span className="text-[11px] text-gray-700 font-medium mt-1 truncate max-w-[55px]">
-                {story.userName.split(" ")[0]}
+              <span className="text-[11px] text-gray-600 font-medium mt-1 truncate max-w-[55px]">
+                របស់ខ្ញុំ
               </span>
             </button>
-          ))}
 
-          {/* Fallback sample stories */}
-          {stories.length === 0 && (
-            <>
-              <div className="flex flex-col items-center flex-shrink-0">
-                <div className="w-[55px] h-[55px] rounded-full border-2 border-[#6C63FF] p-0.5">
+            {/* Existing Stories Circles (Story Ring: 55px, Story Username: 11px) */}
+            {stories.map((story, idx) => (
+              <button
+                key={story.id}
+                onClick={() => onOpenStory && onOpenStory(idx)}
+                className="flex flex-col items-center flex-shrink-0 group"
+              >
+                <div className="w-[55px] h-[55px] rounded-full border-2 border-[#6C63FF] p-0.5 group-hover:scale-105 transition-transform shadow-2xs">
                   <img
-                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Dara"
-                    alt="Dara"
+                    src={
+                      story.userAvatar ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${story.userName}`
+                    }
+                    alt={story.userName}
                     className="w-full h-full rounded-full object-cover"
                   />
                 </div>
-                <span className="text-[11px] text-gray-600 font-medium mt-1">ដារ៉ា</span>
-              </div>
-              <div className="flex flex-col items-center flex-shrink-0">
-                <div className="w-[55px] h-[55px] rounded-full border-2 border-[#6C63FF] p-0.5">
-                  <img
-                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sophea"
-                    alt="Sophea"
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                </div>
-                <span className="text-[11px] text-gray-600 font-medium mt-1">សុភី</span>
-              </div>
-            </>
-          )}
+                <span className="text-[11px] text-gray-700 font-medium mt-1 truncate max-w-[55px]">
+                  {story.userName.split(" ")[0]}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 4. Chat List Section (Chat Avatar: 36px, Chat Name: 13px, Preview: 11px, Time: 10px, Card Padding: 10px, Gap: 8px) */}
+      {/* 4. Chat List Section */}
       {chats.length === 0 || (filteredChats.length === 0 && searchQuery) ? (
         <div className="mt-1">
           <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-2xs text-center flex flex-col items-center justify-center">
@@ -235,14 +212,16 @@ export const ChatListView: React.FC<ChatListViewProps> = ({
                       )}
                     </div>
 
-                    {/* Chat Time: 10px Compact */}
+                    {/* Chat Time */}
                     <span className="text-[10px] text-gray-400 font-medium flex-shrink-0 ml-1">
-                      {chat.lastMessage?.timestamp || "ឥឡូវនេះ"}
+                      {chat.lastMessage?.timestamp
+                        ? formatKhmerRelativeTime(chat.lastMessage.timestamp)
+                        : "ឥឡូវនេះ"}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between mt-0.5">
-                    {/* Chat Message Preview: 11px Compact */}
+                    {/* Chat Message Preview */}
                     <p
                       className={`text-[11px] truncate max-w-[220px] ${
                         isAI ? "text-[#6C63FF] font-medium" : "text-gray-500"

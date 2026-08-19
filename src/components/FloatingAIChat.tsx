@@ -191,12 +191,14 @@ export const FloatingAIChat: React.FC<FloatingAIChatProps> = ({ currentUser, isO
     setIsGenerating(true);
 
     try {
-      const history = updatedMessages.map((m) => ({
-        role: m.role === "user" ? ("user" as const) : ("model" as const),
-        parts: [{ text: m.content }],
+      const historyToSend = updatedMessages.slice(0, -1).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp || new Date().toISOString(),
       }));
 
-      const aiResponseText = await GeminiService.chat(history);
+      const aiResponseText = await GeminiService.chatWithAI(userMessage, historyToSend);
 
       const aiMsgObj = {
         id: (Date.now() + 1).toString(),

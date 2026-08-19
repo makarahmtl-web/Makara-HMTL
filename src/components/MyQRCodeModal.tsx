@@ -9,9 +9,11 @@ import {
   QrCode as QrCodeIcon,
   Sparkles,
   ExternalLink,
+  MessageCircle,
 } from "lucide-react";
 import { User } from "../types";
 import { HugiLogo } from "./HugiLogo";
+import { getCleanUserInviteLink, formatInviteMessage, shareUserInvite } from "../utils/share";
 
 interface MyQRCodeModalProps {
   user: User;
@@ -21,6 +23,7 @@ interface MyQRCodeModalProps {
 export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
@@ -35,7 +38,8 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
     phone: user.showPhone ? user.phone : "",
   });
 
-  const profileUrl = `https://hugi.app/@${username}`;
+  const profileUrl = getCleanUserInviteLink(username);
+  const inviteMessage = formatInviteMessage(user);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -119,7 +123,7 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
     // Bottom Footer in Card
     ctx.fillStyle = "#A0AEC0";
     ctx.font = "500 16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    ctx.fillText("hugi.app • ភាសាខ្មែរ", width / 2, 690);
+    ctx.fillText(profileUrl.replace(/^https?:\/\//, ""), width / 2, 690);
 
     // Download image
     const dataUrl = exportCanvas.toDataURL("image/png");
@@ -132,27 +136,23 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
     setTimeout(() => setDownloadSuccess(false), 2500);
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLinkOnly = () => {
     navigator.clipboard.writeText(profileUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleCopyFullMessage = () => {
+    navigator.clipboard.writeText(inviteMessage);
+    setCopiedMessage(true);
+    setTimeout(() => setCopiedMessage(false), 2000);
+  };
+
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Hugi - @${username}`,
-          text: `ស្កេន ឬចុច link ដើម្បីបន្ថែមខ្ញុំនៅលើកម្មវិធី Hugi: @${username}`,
-          url: profileUrl,
-        });
-        setShareSuccess(true);
-        setTimeout(() => setShareSuccess(false), 2000);
-      } catch {
-        // User cancelled or share failed
-      }
-    } else {
-      handleCopyLink();
+    const result = await shareUserInvite(user);
+    if (result === "shared" || result === "copied") {
+      setShareSuccess(true);
+      setTimeout(() => setShareSuccess(false), 2500);
     }
   };
 
@@ -180,12 +180,12 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
             កូដ QR របស់ខ្ញុំ
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            ឱ្យមិត្តភក្តិស្កេនដើម្បីបន្ថែមអ្នកភ្លាមៗ
+            ឱ្យមិត្តភក្តិស្កេន ឬចែករំលែក Link ដើម្បីឆាតភ្លាមៗ
           </p>
         </div>
 
         {/* QR Code Presentation Box */}
-        <div className="bg-gradient-to-b from-[#F5F7FA] to-gray-50 p-5 rounded-2xl border border-gray-200/80 flex flex-col items-center justify-center relative shadow-2xs mb-4">
+        <div className="bg-gradient-to-b from-[#F5F7FA] to-gray-50 p-4 rounded-2xl border border-gray-200/80 flex flex-col items-center justify-center relative shadow-2xs mb-3.5">
           {/* User Info Header in QR Box */}
           <div className="flex items-center space-x-3 mb-3 w-full bg-white px-3.5 py-2.5 rounded-xl border border-gray-100 shadow-2xs">
             <div className="w-10 h-10 rounded-full bg-[#6C63FF]/10 text-[#6C63FF] font-bold text-base flex items-center justify-center border border-white shadow-2xs overflow-hidden flex-shrink-0">
@@ -212,7 +212,7 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
 
           {/* QR Canvas */}
           <div className="bg-white p-3 rounded-2xl border-2 border-gray-100 shadow-sm relative flex items-center justify-center">
-            <canvas ref={canvasRef} className="w-[200px] h-[200px] block" />
+            <canvas ref={canvasRef} className="w-[190px] h-[190px] block" />
             {/* Center Logo Overlay */}
             <div className="absolute inset-0 m-auto w-9 h-9 rounded-xl bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center pointer-events-none">
               <div className="w-6 h-6 rounded-lg bg-[#6C63FF] text-white flex items-center justify-center font-black text-xs">
@@ -221,18 +221,35 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
             </div>
           </div>
 
-          {/* Username Tag */}
+          {/* Short Link Display */}
           <div className="mt-3 text-center">
-            <span className="text-xs font-semibold text-gray-600 bg-white/90 px-3 py-1 rounded-full border border-gray-200 shadow-2xs">
-              hugi.app/@{username}
+            <span className="text-[11px] font-semibold text-gray-600 bg-white/95 px-3 py-1 rounded-full border border-gray-200 shadow-2xs">
+              /u/{username}
             </span>
           </div>
         </div>
 
+        {/* Clean Message Preview Box */}
+        <div className="mb-3.5 bg-indigo-50/70 border border-[#6C63FF]/20 rounded-xl p-2.5 text-[11px] text-gray-700 leading-relaxed">
+          <div className="font-bold text-[#6C63FF] mb-1 flex items-center justify-between">
+            <span>✨ ទម្រង់សារអញ្ជើញ (Share Template):</span>
+            <button
+              onClick={handleCopyFullMessage}
+              className="text-[10px] bg-white hover:bg-indigo-50 text-[#6C63FF] px-2 py-0.5 rounded-md border border-[#6C63FF]/30 font-bold flex items-center gap-1 active:scale-95 transition-all"
+            >
+              {copiedMessage ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <Copy className="w-2.5 h-2.5" />}
+              <span>{copiedMessage ? "បានចម្លង!" : "ចម្លងសារ"}</span>
+            </button>
+          </div>
+          <div className="text-gray-600 whitespace-pre-line bg-white/80 p-2 rounded-lg border border-indigo-100 text-[10.5px]">
+            {inviteMessage}
+          </div>
+        </div>
+
         {/* Quick Share Links for Other Apps */}
-        <div className="flex items-center justify-center space-x-2 mb-4">
+        <div className="flex items-center justify-center space-x-2 mb-3.5">
           <a
-            href={`https://t.me/share/url?url=${encodeURIComponent(profileUrl)}&text=${encodeURIComponent(`ជជែកជាមួយខ្ញុំនៅលើ Hugi: @${username}`)}`}
+            href={`https://t.me/share/url?url=${encodeURIComponent(profileUrl)}&text=${encodeURIComponent(inviteMessage)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-2.5 py-1.5 bg-[#229ED9]/10 hover:bg-[#229ED9]/20 text-[#229ED9] rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors"
@@ -240,7 +257,7 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
             <span>Telegram</span>
           </a>
           <a
-            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`ជជែកជាមួយខ្ញុំនៅលើ Hugi: @${username} ${profileUrl}`)}`}
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-2.5 py-1.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] rounded-xl text-xs font-semibold flex items-center space-x-1 transition-colors"
@@ -280,31 +297,32 @@ export const MyQRCodeModal: React.FC<MyQRCodeModalProps> = ({ user, onClose }) =
             onClick={handleShare}
             className="py-2.5 px-3 bg-[#6C63FF] hover:bg-[#5a51e6] active:scale-98 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-xs transition-all"
           >
-            {shareSuccess || copiedLink ? (
+            {shareSuccess ? (
               <>
                 <Check className="w-4 h-4 text-white" />
-                <span>បានចម្លងតំណ</span>
+                <span>បានចែករំលែក!</span>
               </>
             ) : (
               <>
                 <Share2 className="w-4 h-4 text-white" />
-                <span>ចែករំលែក QR</span>
+                <span>ចែករំលែកសារ</span>
               </>
             )}
           </button>
         </div>
 
         {/* Copy Link Footer */}
-        <div className="mt-3 text-center">
+        <div className="mt-3 text-center flex items-center justify-center space-x-3">
           <button
-            onClick={handleCopyLink}
+            onClick={handleCopyLinkOnly}
             className="text-[11px] text-gray-400 hover:text-[#6C63FF] inline-flex items-center space-x-1 font-medium transition-colors"
           >
             <Copy className="w-3 h-3" />
-            <span>{copiedLink ? "បានចម្លង Link រួចរាល់!" : "ចម្លង Link Profile"}</span>
+            <span>{copiedLink ? "បានចម្លង Link រួចរាល់!" : "ចម្លង Link ខ្លី"}</span>
           </button>
         </div>
       </div>
     </div>
   );
 };
+

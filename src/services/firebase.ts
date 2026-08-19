@@ -5,6 +5,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -12,13 +13,45 @@ import {
   serverTimestamp,
   onSnapshot,
   addDoc,
+  orderBy,
+  limit,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  uploadString,
+  getDownloadURL,
+} from "firebase/storage";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  onAuthStateChanged,
+  signOut,
+} from "firebase/auth";
 import firebaseConfig from "../../firebase-applet-config.json";
-import { User, Contact, FriendRequest, FriendRequestStatus } from "../types";
+import { User, Contact, FriendRequest, FriendRequestStatus, Story, Post, PostComment } from "../types";
 
 // Initialize Firebase App singleton
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
+
+// Enable offline persistence gracefully if supported
+try {
+  // Firestore v9 handles persistence or caching automatically, but we can suppress unhandled offline warnings
+} catch (e) {}
+
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
 /**
  * Firestore Service for User Profile, Comprehensive Search & Messaging
@@ -406,6 +439,312 @@ export const FirebaseService = {
       });
     } catch (err) {
       console.warn("Firestore respondFriendRequest fallback:", err);
+    }
+  },
+
+  /**
+   * Upload Media to Firebase Storage (or data URL fallback)
+   */
+  async uploadMedia(path: string, mediaData: string | File): Promise<string> {
+    try {
+      const storageRef = ref(storage, path);
+      if (typeof mediaData === "string") {
+        if (mediaData.startsWith("data:")) {
+          await uploadString(storageRef, mediaData, "data_url");
+          return await getDownloadURL(storageRef);
+        }
+        return mediaData;
+      } else {
+        await uploadBytes(storageRef, mediaData);
+        return await getDownloadURL(storageRef);
+      }
+    } catch (err) {
+      console.warn("Firebase Storage upload error, falling back to direct media data:", err);
+      if (typeof mediaData === "string") return mediaData;
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(mediaData);
+      });
+    }
+  },
+
+  /**
+   * Real-time Stories
+   */
+  async createStory(storyData: {
+    currentUser: User;
+    type: "image" | "text";
+    text?: string;
+    imageUrl?: string;
+    bgColor?: string;
+  }): Promise<Story> {
+    const storyId = "story_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+    const newStory: Story = {
+      id: storyId,
+      userId: storyData.currentUser.id,
+      userName: storyData.currentUser.name,
+      userUsername: storyData.currentUser.username,
+      userAvatar: storyData.currentUser.avatar || "",
+      type: storyData.type,
+      text: storyData.text || "",
+      imageUrl: storyData.imageUrl || "",
+      bgColor: storyData.bgColor || "",
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      likes: [],
+      viewedBy: [storyData.currentUser.id],
+    };
+
+    try {
+      const storyRef = doc(db, "stories", storyId);
+      await setDoc(storyRef, {
+        ...newStory,
+        createdAt: serverTimestamp(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      });
+    } catch (err) {
+      console.warn("Firestore createStory error fallback:", err);
+    }
+
+    return newStory;
+  },
+
+  async deleteStory(storyId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, "stories", storyId));
+    } catch (err) {
+      console.warn("Firestore deleteStory error:", err);
+    }
+  },
+
+  async likeStory(storyId: string, userId: string): Promise<void> {
+    try {
+      const storyRef = doc(db, "stories", storyId);
+      const snap = await getDoc(storyRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        const likes: string[] = data.likes || [];
+        if (likes.includes(userId)) {
+          await updateDoc(storyRef, { likes: arrayRemove(userId) });
+        } else {
+          await updateDoc(storyRef, { likes: arrayUnion(userId) });
+        }
+      }
+    } catch (err) {
+      console.warn("Firestore likeStory error:", err);
+    }
+  },
+
+  /**
+   * Listen to active Stories in real-time (last 24 hours only)
+   */
+  listenToStories(callback: (stories: Story[]) => void): () => void {
+    try {
+      const storiesQuery = query(collection(db, "stories"));
+      return onSnapshot(
+        storiesQuery,
+        (snapshot) => {
+          const now = Date.now();
+          const oneDayAgo = now - 24 * 60 * 60 * 1000;
+          const storiesList: Story[] = [];
+
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            let storyTime = now;
+            if (data.createdAt?.toDate) {
+              storyTime = data.createdAt.toDate().getTime();
+            } else if (data.createdAt?.seconds) {
+              storyTime = data.createdAt.seconds * 1000;
+            } else if (data.createdAt) {
+              storyTime = new Date(data.createdAt).getTime();
+            }
+
+            // Expiration filter: only within 24 hours
+            if (storyTime >= oneDayAgo) {
+              storiesList.push({
+                id: docSnap.id,
+                userId: data.userId || "",
+                userName: data.userName || "អ្នកប្រើប្រាស់",
+                userUsername: data.userUsername || "",
+                userAvatar: data.userAvatar || "",
+                type: data.type || "text",
+                text: data.text || "",
+                imageUrl: data.imageUrl || "",
+                bgColor: data.bgColor || "",
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt || new Date(storyTime).toISOString(),
+                expiresAt: data.expiresAt || new Date(storyTime + 24 * 60 * 60 * 1000).toISOString(),
+                likes: data.likes || [],
+                viewedBy: data.viewedBy || [],
+              });
+            }
+          });
+
+          // Sort newest first
+          storiesList.sort((a, b) => {
+            const timeA = new Date(a.createdAt).getTime();
+            const timeB = new Date(b.createdAt).getTime();
+            return timeB - timeA;
+          });
+
+          callback(storiesList);
+        },
+        (error) => {
+          console.warn("Stories onSnapshot listener warning:", error);
+        }
+      );
+    } catch (err) {
+      console.warn("listenToStories init fallback:", err);
+      return () => {};
+    }
+  },
+
+  /**
+   * Real-time Posts
+   */
+  async createPost(postData: {
+    currentUser: User;
+    text: string;
+    imageUrl?: string;
+  }): Promise<Post> {
+    const postId = "post_" + Date.now() + "_" + Math.random().toString(36).substring(2, 7);
+    const newPost: Post = {
+      id: postId,
+      userId: postData.currentUser.id,
+      userName: postData.currentUser.name,
+      userUsername: postData.currentUser.username,
+      userAvatar: postData.currentUser.avatar || "",
+      text: postData.text.trim(),
+      imageUrl: postData.imageUrl || "",
+      likes: [],
+      commentsCount: 0,
+      comments: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      const postRef = doc(db, "posts", postId);
+      await setDoc(postRef, {
+        ...newPost,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn("Firestore createPost error fallback:", err);
+    }
+
+    return newPost;
+  },
+
+  async deletePost(postId: string): Promise<void> {
+    try {
+      await deleteDoc(doc(db, "posts", postId));
+    } catch (err) {
+      console.warn("Firestore deletePost error:", err);
+    }
+  },
+
+  async likePost(postId: string, userId: string): Promise<void> {
+    try {
+      const postRef = doc(db, "posts", postId);
+      const snap = await getDoc(postRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        const likes: string[] = data.likes || [];
+        if (likes.includes(userId)) {
+          await updateDoc(postRef, {
+            likes: arrayRemove(userId),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          await updateDoc(postRef, {
+            likes: arrayUnion(userId),
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Firestore likePost error:", err);
+    }
+  },
+
+  async addCommentToPost(
+    postId: string,
+    commentData: { currentUser: User; text: string }
+  ): Promise<PostComment> {
+    const commentId = "cmt_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+    const newComment: PostComment = {
+      id: commentId,
+      userId: commentData.currentUser.id,
+      userName: commentData.currentUser.name,
+      userUsername: commentData.currentUser.username,
+      userAvatar: commentData.currentUser.avatar || "",
+      text: commentData.text.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const postRef = doc(db, "posts", postId);
+      await updateDoc(postRef, {
+        comments: arrayUnion({
+          ...newComment,
+          createdAt: new Date().toISOString(),
+        }),
+        commentsCount: (await getDoc(postRef)).data()?.commentsCount ? (await getDoc(postRef)).data()?.commentsCount + 1 : 1,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn("Firestore addCommentToPost fallback:", err);
+    }
+
+    return newComment;
+  },
+
+  /**
+   * Listen to Posts in real-time
+   */
+  listenToPosts(callback: (posts: Post[]) => void): () => void {
+    try {
+      const postsQuery = query(collection(db, "posts"));
+      return onSnapshot(
+        postsQuery,
+        (snapshot) => {
+          const postsList: Post[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            postsList.push({
+              id: docSnap.id,
+              userId: data.userId || "",
+              userName: data.userName || "អ្នកប្រើប្រាស់",
+              userUsername: data.userUsername || "",
+              userAvatar: data.userAvatar || "",
+              text: data.text || "",
+              imageUrl: data.imageUrl || "",
+              likes: data.likes || [],
+              commentsCount: data.comments?.length || data.commentsCount || 0,
+              comments: data.comments || [],
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt || new Date().toISOString(),
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt || new Date().toISOString(),
+            });
+          });
+
+          // Sort newest posts first
+          postsList.sort((a, b) => {
+            const timeA = new Date(a.createdAt).getTime();
+            const timeB = new Date(b.createdAt).getTime();
+            return timeB - timeA;
+          });
+
+          callback(postsList);
+        },
+        (error) => {
+          console.warn("Posts onSnapshot listener warning:", error);
+        }
+      );
+    } catch (err) {
+      console.warn("listenToPosts init fallback:", err);
+      return () => {};
     }
   },
 };
